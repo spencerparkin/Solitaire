@@ -30,4 +30,5 @@ target_link_libraries(SpiderSolitaire PRIVATE
 
 target_include_directories(SpiderSolitaire PRIVATE
     "Source"
+    "DirectXHeader"
 )
