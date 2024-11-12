@@ -1,6 +1,8 @@
 #include "Application.h"
 #include <string>
 #include <format>
+#include <locale>
+#include <codecvt>
 
 Application::Application()
 {
@@ -54,6 +56,68 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
+	UINT dxgiFactoryFlags = 0;
+	HRESULT result = 0;
+
+#if defined _DEBUG
+	ComPtr<ID3D12Debug> debugInterface;
+	result = D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface));
+	if (SUCCEEDED(result))
+	{
+		debugInterface->EnableDebugLayer();
+		dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+	}
+	else
+	{
+		std::string error = std::format("Failed to get debug interface.  Error code: {}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+#endif
+
+	ComPtr<IDXGIFactory4> factory;
+	result = CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create DXGI factory.  Error code: {}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Look for a GPU that we can use.
+	for (int i = 0; true; i++)
+	{
+		// Grab the next adapter.
+		ComPtr<IDXGIAdapter1> adapter;
+		result = factory->EnumAdapters1(i, &adapter);
+		if (FAILED(result))
+			break;
+
+		// Skip any software-based adapters.  We want a physical GPU.
+		DXGI_ADAPTER_DESC1 adapterDesc{};
+		adapter->GetDesc1(&adapterDesc);
+		if ((adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0)
+			continue;
+
+		// Does this adapter support DirectX 12?
+		result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr);
+		if (SUCCEEDED(result))
+		{
+			// Yes.  Use it.
+			std::string gpuDesc = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(adapterDesc.Description);
+			OutputDebugStringA(std::format("Using GPU: {}\n", gpuDesc.c_str()).c_str());
+			result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), &this->device);
+			if (FAILED(result))
+			{
+				std::string error = std::format("Failed to create D3D12 device.  Error code: {}", result);
+				MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+				return false;
+			}
+
+			break;
+		}
+	}
+
 	ShowWindow(this->windowHandle, cmdShow);
 
 	return true;
@@ -61,6 +125,11 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 void Application::Shutdown(HINSTANCE instance)
 {
+	// I suppose we don't need to explicitly release anything,
+	// and supposedly the order of releases doesn't matter either.
+
+	this->device = nullptr;
+
 	UnregisterClass(WINDOW_CLASS_NAME, instance);
 }
 

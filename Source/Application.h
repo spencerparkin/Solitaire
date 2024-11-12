@@ -1,6 +1,14 @@
 #pragma once
 
 #include <Windows.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <d3d12sdklayers.h>
+#include <wrl.h>
+
+using Microsoft::WRL::ComPtr;
+
+// TODO: Grab: https://github.com/microsoft/DirectX-Headers/blob/main/include/directx/d3dx12.h
 
 #define WINDOW_CLASS_NAME		"SpiderSolitaireWindow"
 
@@ -21,4 +29,5 @@ private:
 	void Render();
 
 	HWND windowHandle;
+	ComPtr<ID3D12Device> device;
 };
