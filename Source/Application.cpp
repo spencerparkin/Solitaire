@@ -118,6 +118,12 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		}
 	}
 
+	if (!this->device.Get())
+	{
+		MessageBox(NULL, "Failed to find a D3D12-compatible device.", "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
 	ShowWindow(this->windowHandle, cmdShow);
 
 	return true;
