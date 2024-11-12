@@ -255,8 +255,12 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 void Application::Shutdown(HINSTANCE instance)
 {
+	// We don't really need to explicitly release resources here,
+	// but I guess I'm just doing it anyway.  We do, however, need
+	// to wait for the GPU to finish before any resources are released
+	// either here or when the destructors are called.
 	this->WaitForGPUIdle();
-
+	
 	for (int i = 0; i < _countof(this->swapFrame); i++)
 	{
 		SwapFrame& frame = this->swapFrame[i];
@@ -341,15 +345,19 @@ void Application::Render()
 	ID3D12CommandList* comandListArray[] = { this->commandList.Get() };
 	this->commandQueue->ExecuteCommandLists(_countof(comandListArray), comandListArray);
 
-	// Now schedual a fence event to occur once the command list finishes.
-	this->commandQueue->Signal(frame.fence.Get(), ++frame.count);
-
 	// Tell the driver that frame "i" can now be presented as far as we're concerned.  However, the GPU
 	// might not actually be done rendering the frame, so I'm not sure how that's handled internally.
-	// In any case, this will cause our next call to GetCurrentBackBufferIndex() to return the next frame,
-	// I believe.
+	// In any case, this will cause our next call to GetCurrentBackBufferIndex() to return the next frame
+	// in the swap chain, I believe.  Note that this must be done BEFORE we issue the signal-fence command
+	// that follows, or else waiting on that fence does not necessarily ensure that the GPU is idle, at
+	// least as far as this frame is concerned.  One possible reason may be that the present call here
+	// actually queues up one or more commands.  Note that we did need to give the swap-chain a pointer
+	// to the command-queue when we created it.
 	result = this->swapChain->Present(1, 0);
 	assert(SUCCEEDED(result));
+
+	// Now schedual a fence event to occur once the command list finishes.
+	this->commandQueue->Signal(frame.fence.Get(), ++frame.count);
 }
 
 void Application::StallUntilFrameCompleteIfNecessary(SwapFrame& frame)
