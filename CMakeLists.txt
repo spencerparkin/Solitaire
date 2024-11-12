@@ -11,9 +11,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(SPIDER_SOURCES
     Source/Main.cpp
     Source/Main.h
+    Source/Application.cpp
+    Source/Application.h
 )
-
-#source_group("Sources" TREE ${CMAKE_CURRENT_SOURE_DIR} FILES ${SPIDER_SOURCES})
 
 add_executable(SpiderSolitaire WIN32 ${SPIDER_SOURCES})
 
