@@ -24,9 +24,28 @@ public:
 private:
 	static LRESULT CALLBACK WindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam);
 
+	struct SwapFrame;
+
 	void Tick();
 	void Render();
+	void WaitForGPUIdle();
+	void StallUntilFrameCompleteIfNecessary(SwapFrame& frame);
+
+	struct SwapFrame
+	{
+		ComPtr<ID3D12Resource> renderTarget;
+		ComPtr<ID3D12CommandAllocator> commandAllocator;
+		HANDLE fenceEvent;
+		ComPtr<ID3D12Fence> fence;
+		UINT64 count;
+	};
 
 	HWND windowHandle;
 	ComPtr<ID3D12Device> device;
+	ComPtr<ID3D12CommandQueue> commandQueue;
+	ComPtr<IDXGISwapChain3> swapChain;
+	SwapFrame swapFrame[2];
+	ComPtr<ID3D12DescriptorHeap> rtvHeap;
+	UINT rtvDescriptorSize;
+	ComPtr<ID3D12GraphicsCommandList> commandList;
 };
