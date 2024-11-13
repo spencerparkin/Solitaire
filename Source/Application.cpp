@@ -5,6 +5,8 @@
 #include <codecvt>
 #include <assert.h>
 
+using namespace DirectX;
+
 Application::Application()
 {
 	this->windowHandle = NULL;
@@ -389,6 +391,9 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 bool Application::LoadCardTextures()
 {
+	// See: https://github.com/microsoft/DirectXTK12/wiki/ResourceUploadBatch
+	// See: https://github.com/microsoft/DirectXTK12/wiki/DDSTextureLoader
+
 	return true;
 }
 

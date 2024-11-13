@@ -9,6 +9,8 @@
 #include <wrl.h>
 #include <filesystem>
 #include <unordered_map>
+#include <DDSTextureLoader.h>
+#include <ResourceUploadBatch.h>
 
 using Microsoft::WRL::ComPtr;
 
