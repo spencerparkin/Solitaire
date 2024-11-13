@@ -377,7 +377,6 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	// that the command list is already recording, just close it now.
 	this->commandList->Close();
 
-	// This will load textures into slow GPU memory, then queue up a bunch of commands to move them into fast GPU memory.
 	if (!this->LoadCardTextures())
 		return false;
 	
