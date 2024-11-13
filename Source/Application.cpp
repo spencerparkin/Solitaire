@@ -231,12 +231,114 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		}
 	}
 
-	// TODO: Make the root signature.
-	// TODO: Make the PSO.
+	CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
+	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
-	// Note that the command-allocator we pass in here may not really matter, because we
-	// reset the command list to the desired command-allocator before each GPU submission.
-	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->swapFrame[0].commandAllocator.Get(), nullptr, IID_PPV_ARGS(&this->commandList));
+	CD3DX12_ROOT_PARAMETER1 rootParameters[1];
+	rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
+
+	D3D12_STATIC_SAMPLER_DESC samplerDesc{};
+	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.MipLODBias = 0;
+	samplerDesc.MaxAnisotropy = 0;
+	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	samplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	samplerDesc.MinLOD = 0.0f;
+	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc.ShaderRegister = 0;
+	samplerDesc.RegisterSpace = 0;
+	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+	rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &samplerDesc, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	ComPtr<ID3DBlob> signature;
+	ComPtr<ID3DBlob> error;
+	result = D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error);
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to serialize root signature.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	result = this->device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&this->rootSignature));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create root signature.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	ComPtr<ID3DBlob> vertexShaderBlob;
+	ComPtr<ID3DBlob> pixelShaderBlob;
+	ComPtr<ID3DBlob> errorBlob;
+
+#if defined _DEBUG
+	UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+	UINT compileFlags = 0;
+#endif
+
+	std::filesystem::path shaderFolder;
+	if (!this->FindAssetDirectory("Shaders", shaderFolder))
+	{
+		std::string error = std::format("Failed to find shader asset folder.");
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	result = D3DCompileFromFile((shaderFolder / "CardShader.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShaderBlob, &errorBlob);
+	if (FAILED(result))
+	{
+		std::string error = "Failed to compile vertex shader.  Error: " + this->GetErrorMessageFromBlob(errorBlob.Get());
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	result = D3DCompileFromFile((shaderFolder / "CardShader.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShaderBlob, nullptr);
+	if (FAILED(result))
+	{
+		std::string error = "Failed to compile pixel shader.  Error: " + this->GetErrorMessageFromBlob(errorBlob.Get());
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+	psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
+	psoDesc.pRootSignature = this->rootSignature.Get();
+	psoDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShaderBlob.Get());
+	psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShaderBlob.Get());
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState.DepthEnable = FALSE;
+	psoDesc.DepthStencilState.StencilEnable = FALSE;
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	psoDesc.SampleDesc.Count = 1;
+	
+	result = this->device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&this->pipelineState));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create pipeline state object.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Note that the command-allocator we pass in here is arbitrary for now.  We will typically reset
+	// the command list to the desired command-allocator before each GPU submission for each swap-frame.
+	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->swapFrame[0].commandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
 	if (FAILED(result))
 	{
 		std::string error = std::format("Failed to create command list.  Error code: {:x}", result);
@@ -244,6 +346,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
+	// Command-lists are created in the recording state, but we're not ready to record, so just close it now.  It is re-opened when it is reset.
 	this->commandList->Close();
 
 	// TODO: Wait on GPU here to upload vertex buffers and textures into GPU memory.
@@ -278,9 +381,44 @@ void Application::Shutdown(HINSTANCE instance)
 	this->commandQueue = nullptr;
 	this->rtvHeap = nullptr;
 	this->commandList = nullptr;
+	this->srvHeap = nullptr;
+	this->pipelineState = nullptr;
+	this->rootSignature = nullptr;
 	this->device = nullptr;
 
 	UnregisterClass(WINDOW_CLASS_NAME, instance);
+}
+
+std::string Application::GetErrorMessageFromBlob(ID3DBlob* errorBlob)
+{
+	SIZE_T errorBufferSize = errorBlob->GetBufferSize();
+	std::unique_ptr<char> errorBuffer(new char[errorBufferSize]);
+	memcpy_s(errorBuffer.get(), errorBufferSize, errorBlob->GetBufferPointer(), errorBufferSize);
+	return std::string(errorBuffer.get());
+}
+
+bool Application::FindAssetDirectory(const std::string& folderName, std::filesystem::path& folderPath)
+{
+	char moduleFileName[MAX_PATH];
+	if (GetModuleFileNameA(NULL, moduleFileName, sizeof(moduleFileName)) == 0)
+		return false;
+
+	std::filesystem::path path(moduleFileName);
+	path = path.parent_path();
+	while (true)
+	{
+		int numComponents = std::distance(path.begin(), path.end());
+		if (numComponents == 0)
+			break;
+
+		folderPath = path / folderName;
+		if (std::filesystem::exists(folderPath))
+			return true;
+
+		path = path.parent_path();
+	}
+
+	return false;
 }
 
 int Application::Run()
