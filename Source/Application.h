@@ -52,6 +52,7 @@ private:
 	struct CardTexture
 	{
 		ComPtr<ID3D12Resource> texture;
+		ComPtr<ID3D12Resource> intermediateTexture;
 		UINT viewOffset;
 	};
 

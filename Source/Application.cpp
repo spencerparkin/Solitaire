@@ -487,7 +487,7 @@ bool Application::LoadCardTextures()
 		srvHandle.Offset(1, srvDescriptorSize);
 
 		// Lastly, save the CPU-side reference we have to the texture in our map so that we can use it later for rendering.
-		CardTexture cardTexture{ texture, srvViewOffset++ };
+		CardTexture cardTexture{ texture, intermediateTexture, srvViewOffset++ };
 		std::string cardName = std::filesystem::path(textureFile).stem().string();
 		this->cardTextureMap.insert(std::pair(cardName, cardTexture));
 
