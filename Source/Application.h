@@ -49,6 +49,12 @@ private:
 		UINT64 count;
 	};
 
+	struct CardTexture
+	{
+		ComPtr<ID3D12Resource> texture;
+		UINT viewOffset;
+	};
+
 	HWND windowHandle;
 	ComPtr<ID3D12Device> device;
 	ComPtr<ID3D12CommandQueue> commandQueue;
@@ -64,5 +70,5 @@ private:
 	HANDLE generalFenceEvent;
 	ComPtr<ID3D12Fence> generalFence;
 	UINT64 generalCount;
-	std::unordered_map<std::string, ComPtr<ID3D12Resource>> cardTextureMap;
+	std::unordered_map<std::string, CardTexture> cardTextureMap;
 };

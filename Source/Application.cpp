@@ -374,17 +374,14 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	// This loads textures into CPU memory, then populates the command list with commands to upload those textures into GPU memory.
+	// This will load textures into slow GPU memory, then queue up a bunch of commands to move them into fast GPU memory.
 	if (!this->LoadCardTextures())
 		return false;
 	
-	// We're done recording commands to setup the GPU memory.
+	// We're now ready to kick-off the GPU to get move everything into GPU memory where we want it.
+	// It's not safe to continue until this process is complete, so wait for the GPU to finish.
 	this->commandList->Close();
-
-	// Now kick-off the GPU to move all textures from slow GPU memory to fast GPU memory.
 	this->ExecuteCommandList();
-
-	// We're not ready to continue until the uploads are complete.
 	this->WaitForGPUIdle();
 
 	ShowWindow(this->windowHandle, cmdShow);
@@ -407,41 +404,61 @@ bool Application::LoadCardTextures()
 		return false;
 	}
 
-	// Walk the textures in our asset folder, loading each one as we go.
+	// Soak up all the texture file names we find in the asset folder.
+	std::vector<std::string> textureFileArray;
 	for (const auto& entry : std::filesystem::directory_iterator(folderPath))
 	{
 		std::string ext = entry.path().extension().string();
-		if (ext != ".dds")
-			continue;
+		if (ext == ".dds")
+			textureFileArray.push_back(entry.path().string());
+	}
 
-		// Load the texture into a portion of GPU memory that has CPU-access.  This isn't good, however,
-		// for frequent GPU-access by shaders.  We'll move it into a better portion of GPU memory momentarily.
-		// For now, we make a call into the tool-kit for convenience.  It creates a committed resource on the GPU,
-		// then maps it into CPU memory so that it can do a copy of the texture from CPU memory to GPU memory.
-		std::wstring ddsFilePath = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entry.path().string());
+	// We'll need a heap of SRVs for all the textures.
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc{};
+	srvHeapDesc.NumDescriptors = (UINT)textureFileArray.size();
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	HRESULT result = this->device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&this->srvHeap));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create SRV heap.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Get ready to walk the heap.
+	UINT srvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(this->srvHeap->GetCPUDescriptorHandleForHeapStart());
+	UINT srvViewOffset = 0;
+
+	// Now go load up all the textures we found.
+	for(const std::string& textureFile : textureFileArray)
+	{
+		// This will load the texture data into CPU memory and then reserve GPU memory that has fast-access from a pixel shader, but that's all it does.
+		std::wstring ddsFilePath = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(textureFile);
 		std::unique_ptr<uint8_t[]> ddsData;
 		std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-		ComPtr<ID3D12Resource> textureForUpload;
-		HRESULT result = LoadDDSTextureFromFile(this->device.Get(), ddsFilePath.c_str(), &textureForUpload, ddsData, subresources);
+		ComPtr<ID3D12Resource> texture;
+		result = LoadDDSTextureFromFile(this->device.Get(), ddsFilePath.c_str(), &texture, ddsData, subresources);
 		if (FAILED(result))
 		{
-			std::string error = std::format("Failed to load texture \"{}\".  Error code: {:x}", entry.path().string().c_str(), result);
+			std::string error = std::format("Failed to load texture \"{}\".  Error code: {:x}", textureFile.c_str(), result);
 			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
 			return false;
 		}
 
-		// Reserve room in GPU memory for the texture that is quick to access from a shader.
-		UINT64 uploadBufferSize = GetRequiredIntermediateSize(textureForUpload.Get(), 0, (UINT)subresources.size());
-		ComPtr<ID3D12Resource> texture;
+		// This will reserve GPU memory that has slow-access from a pixel shader (I think!), but can also be mapped into CPU memory.
+		UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, (UINT)subresources.size());
+		auto intermediateTextureDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+		ComPtr<ID3D12Resource> intermediateTexture;
 		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
-		auto textureDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 		result = this->device->CreateCommittedResource(
 			&heapProps,
 			D3D12_HEAP_FLAG_NONE,
-			&textureDesc,
+			&intermediateTextureDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&texture));
+			IID_PPV_ARGS(&intermediateTexture));
 		if (FAILED(result))
 		{
 			std::string error = std::format("Failed to create resource for texture with high GPU availability.  Error code: {:x}", result);
@@ -449,16 +466,34 @@ bool Application::LoadCardTextures()
 			return false;
 		}
 
-		// Record commands that will move the texture from the slow GPU memory to the fast GPU memory.
-		UpdateSubresources(this->commandList.Get(), texture.Get(), textureForUpload.Get(), 0, 0, (UINT)subresources.size(), subresources.data());
+		// This will map the intermediate texture into CPU memory, copy the loaded texture data into it (into GPU memory),
+		// then record a command that will transfer the texture data from slow GPU memory to fast GPU memory.
+		UpdateSubresources(this->commandList.Get(), texture.Get(), intermediateTexture.Get(), 0, 0, (UINT)subresources.size(), subresources.data());
 
-		// Now record a command that transitions the resource state of the texture from a destination for copying to something meant to be used by a pixel shader.
+		// Now record a command that will change the resource state of the fast GPU memory texture from that of a copy destination to a pixel shader data source.
 		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 		this->commandList->ResourceBarrier(1, &barrier);
 
-		// Lastly, store our CPU-side reference to the resource so that we can access it during render time.
-		std::string cardName = entry.path().stem().string();
-		this->cardTextureMap.insert(std::pair(cardName, texture.Get()));
+		// We'll need a shader resource view into the texture for later rendering.
+		D3D12_RESOURCE_DESC textureDesc = texture->GetDesc();
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = textureDesc.Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+		this->device->CreateShaderResourceView(texture.Get(), &srvDesc, srvHandle);
+
+		// Move the shader resource view handle along to the next one in the heap.
+		srvHandle.Offset(1, srvDescriptorSize);
+
+		// Lastly, save the CPU-side reference we have to the texture in our map so that we can use it later for rendering.
+		CardTexture cardTexture{ texture, srvViewOffset++ };
+		std::string cardName = std::filesystem::path(textureFile).stem().string();
+		this->cardTextureMap.insert(std::pair(cardName, cardTexture));
+
+		// TODO: Should I free/destroy the intermediate texture resource on the GPU?  How would I even do that?
+		//       Is there a command that I issue for that?
+		//this->commandList->DiscardResource()		Call this?
 	}
 
 	return true;
