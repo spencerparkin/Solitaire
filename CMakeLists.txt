@@ -1,8 +1,8 @@
-# CMakeLists.txt for the Spider Solitaire project.
+# CMakeLists.txt for the Solitaire project.
 
 cmake_minimum_required(VERSION 3.27)
 
-project(SpiderSolitaire)
+project(Solitaire)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Bin)
 set(CMAKE_CXX_STANDARD 20)
@@ -15,20 +15,20 @@ set(SPIDER_SOURCES
     Source/Application.h
 )
 
-add_executable(SpiderSolitaire WIN32 ${SPIDER_SOURCES})
+add_executable(Solitaire WIN32 ${SPIDER_SOURCES})
 
-target_compile_definitions(SpiderSolitaire PRIVATE
+target_compile_definitions(Solitaire PRIVATE
     _USE_MATH_DEFINES
     WIN32_LEAN_AND_MEAN
 )
 
-target_link_libraries(SpiderSolitaire PRIVATE
+target_link_libraries(Solitaire PRIVATE
     d3d12.lib
     dxgi.lib
     d3dcompiler.lib
 )
 
-target_include_directories(SpiderSolitaire PRIVATE
+target_include_directories(Solitaire PRIVATE
     "Source"
     "DirectXHeader"
 )

@@ -47,7 +47,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	this->windowHandle = CreateWindow(
 		windowClass.lpszClassName,
-		TEXT("Spider Solitaire"),
+		TEXT("Solitaire"),
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT,	// Default X position.
 		CW_USEDEFAULT,	// Default Y position.

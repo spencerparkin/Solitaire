@@ -9,7 +9,7 @@
 
 using Microsoft::WRL::ComPtr;
 
-#define WINDOW_CLASS_NAME		"SpiderSolitaireWindow"
+#define WINDOW_CLASS_NAME		"SolitaireWindow"
 
 class Application
 {
