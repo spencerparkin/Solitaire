@@ -491,9 +491,10 @@ bool Application::LoadCardTextures()
 		std::string cardName = std::filesystem::path(textureFile).stem().string();
 		this->cardTextureMap.insert(std::pair(cardName, cardTexture));
 
-		// TODO: Should I free/destroy the intermediate texture resource on the GPU?  How would I even do that?
-		//       Is there a command that I issue for that?
-		//this->commandList->DiscardResource()		Call this?
+		// I don't think we need to keep the intermediate texture around, so might as well discard it.
+		D3D12_DISCARD_REGION region{};
+		region.NumSubresources = 1;
+		this->commandList->DiscardResource(intermediateTexture.Get(), &region);
 	}
 
 	return true;
