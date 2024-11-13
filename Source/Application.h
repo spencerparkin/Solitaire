@@ -10,7 +10,7 @@
 #include <filesystem>
 #include <unordered_map>
 #include <DDSTextureLoader.h>
-#include <ResourceUploadBatch.h>
+#include <DirectXMath.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -38,6 +38,7 @@ private:
 	bool FindAssetDirectory(const std::string& folderName, std::filesystem::path& folderPath);
 	std::string GetErrorMessageFromBlob(ID3DBlob* errorBlob);
 	bool LoadCardTextures();
+	bool LoadCardVertexBuffer();
 	void ExecuteCommandList();
 
 	struct SwapFrame
@@ -52,8 +53,13 @@ private:
 	struct CardTexture
 	{
 		ComPtr<ID3D12Resource> texture;
-		ComPtr<ID3D12Resource> intermediateTexture;
-		UINT viewOffset;
+		UINT srvOffset;
+	};
+
+	struct CardVertex
+	{
+		DirectX::XMFLOAT3 position;
+		DirectX::XMFLOAT2 texCoords;
 	};
 
 	HWND windowHandle;
@@ -72,4 +78,6 @@ private:
 	ComPtr<ID3D12Fence> generalFence;
 	UINT64 generalCount;
 	std::unordered_map<std::string, CardTexture> cardTextureMap;
+	ComPtr<ID3D12Resource> cardVertexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW cardVertexBufferView;
 };

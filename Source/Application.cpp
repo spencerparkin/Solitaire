@@ -13,6 +13,7 @@ Application::Application()
 	this->rtvDescriptorSize = 0;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
+	::ZeroMemory(&this->cardVertexBufferView, sizeof(cardVertexBufferView));
 
 	for (int i = 0; i < _countof(this->swapFrame); i++)
 	{
@@ -364,8 +365,6 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	// Note that the command list is created in the recording state.  We'll take advantage of this
-	// by subsequently using the command list to upload textures and vertex buffers into GPU memory.
 	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->generalCommandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
 	if (FAILED(result))
 	{
@@ -374,28 +373,122 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
+	// Command lists are created in the recording state.  Since no subsequent code assumes
+	// that the command list is already recording, just close it now.
+	this->commandList->Close();
+
 	// This will load textures into slow GPU memory, then queue up a bunch of commands to move them into fast GPU memory.
 	if (!this->LoadCardTextures())
 		return false;
 	
-	// We're now ready to kick-off the GPU to get move everything into GPU memory where we want it.
-	// It's not safe to continue until this process is complete, so wait for the GPU to finish.
-	this->commandList->Close();
-	this->ExecuteCommandList();
-	this->WaitForGPUIdle();
+	if (!this->LoadCardVertexBuffer())
+		return false;
 
 	ShowWindow(this->windowHandle, cmdShow);
 
 	return true;
 }
 
+bool Application::LoadCardVertexBuffer()
+{
+	// Here is the vertex buffer data, plain and simple.
+	CardVertex cardVertexArray[] =
+	{
+		{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
+		{ { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
+		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } }
+	};
+
+	// Get ready to generate a new command list.  This will open the command list for recording.
+	HRESULT result = this->generalCommandAllocator->Reset();
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to reset the general command allocator.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+	result = this->commandList->Reset(this->generalCommandAllocator.Get(), nullptr);
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to reset the command list with the general allocator.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Reserve space in the upload/staging area of the GPU for the vertex buffer.
+	// This area can be mapped on the CPU, but is slow to access from a vertex shader.
+	// I suppose that if we were going to skin on the CPU, thought, that we'd have to
+	// use this area while rendering.  I don't know.
+	ComPtr<ID3D12Resource> intermediateVertexBuffer;
+	CD3DX12_HEAP_PROPERTIES intermediateHeapProps(D3D12_HEAP_TYPE_UPLOAD);
+	UINT cardVertexBufferSize = sizeof(cardVertexArray);
+	auto vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(cardVertexBufferSize);
+	result = this->device->CreateCommittedResource(
+		&intermediateHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&vertexBufferDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&intermediateVertexBuffer));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create intermediate vertex buffer resource.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Reserve space in the GPU where a vertex shader has quick access to the data.
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+	result = this->device->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&vertexBufferDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&this->cardVertexBuffer));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create vertex buffer resource.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Write the vertex buffer data from CPU memory into the staging area on the GPU.
+	UINT8* vertexBufferPtr = nullptr;
+	CD3DX12_RANGE readRange(0, 0);
+	result = intermediateVertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&vertexBufferPtr));
+	assert(SUCCEEDED(result));
+	memcpy(vertexBufferPtr, cardVertexArray, cardVertexBufferSize);
+	intermediateVertexBuffer->Unmap(0, nullptr);
+
+	// Now record a command that will transfer the vertex buffer data from staging to fast GPU memory.
+	this->commandList->CopyBufferRegion(this->cardVertexBuffer.Get(), 0, intermediateVertexBuffer.Get(), 0, cardVertexBufferSize);
+
+	// Record a command that changes the resource state from a copy destination to a vertex shader data source.
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(this->cardVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	this->commandList->ResourceBarrier(1, &barrier);
+
+	// We won't need the staging area anymore, so let it go.
+	D3D12_DISCARD_REGION region{};
+	region.NumSubresources = 1;
+	this->commandList->DiscardResource(intermediateVertexBuffer.Get(), &region);
+
+	// Okay, have the GPU perform the transfer.  Block until finished.
+	this->commandList->Close();
+	this->ExecuteCommandList();
+	this->WaitForGPUIdle();
+
+	// We'll need this view for later rendering, so cache it now.
+	this->cardVertexBufferView.BufferLocation = this->cardVertexBuffer->GetGPUVirtualAddress();
+	this->cardVertexBufferView.StrideInBytes = sizeof(CardVertex);
+	this->cardVertexBufferView.SizeInBytes = cardVertexBufferSize;
+
+	return true;
+}
+
 bool Application::LoadCardTextures()
 {
-	// Note that we record a bunch of commands here with the expectation that
-	// the caller has the command list ready and will at some point execute
-	// those commands once we're finished here.
-	// See: https://github.com/microsoft/DirectXTK12/wiki/DDSTextureLoader
-
 	// Locate our texture asset directory.
 	std::filesystem::path folderPath;
 	if (!this->FindAssetDirectory("Textures", folderPath))
@@ -411,6 +504,12 @@ bool Application::LoadCardTextures()
 		std::string ext = entry.path().extension().string();
 		if (ext == ".dds")
 			textureFileArray.push_back(entry.path().string());
+	}
+
+	if (textureFileArray.size() == 0)
+	{
+		MessageBox(NULL, "No textures found!", "Error!", MB_ICONERROR | MB_OK);
+		return false;
 	}
 
 	// We'll need a heap of SRVs for all the textures.
@@ -429,7 +528,26 @@ bool Application::LoadCardTextures()
 	// Get ready to walk the heap.
 	UINT srvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(this->srvHeap->GetCPUDescriptorHandleForHeapStart());
-	UINT srvViewOffset = 0;
+	UINT srvOffset = 0;
+
+	// Get ready to generate a new command list.  This will open the command list for recording.
+	result = this->generalCommandAllocator->Reset();
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to reset the general command allocator.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+	result = this->commandList->Reset(this->generalCommandAllocator.Get(), nullptr);
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to reset the command list with the general allocator.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// We'll need these to stay in scope until the GPU is done with them.
+	std::vector<ComPtr<ID3D12Resource>> intermediateTextureArray;
 
 	// Now go load up all the textures we found.
 	for(const std::string& textureFile : textureFileArray)
@@ -466,6 +584,9 @@ bool Application::LoadCardTextures()
 			return false;
 		}
 
+		// Keep the intermediate texture in scope until the GPU is done with it.
+		intermediateTextureArray.push_back(intermediateTexture);
+
 		// This will map the intermediate texture into CPU memory, copy the loaded texture data into it (into GPU memory),
 		// then record a command that will transfer the texture data from slow GPU memory to fast GPU memory.
 		UpdateSubresources(this->commandList.Get(), texture.Get(), intermediateTexture.Get(), 0, 0, (UINT)subresources.size(), subresources.data());
@@ -487,7 +608,7 @@ bool Application::LoadCardTextures()
 		srvHandle.Offset(1, srvDescriptorSize);
 
 		// Lastly, save the CPU-side reference we have to the texture in our map so that we can use it later for rendering.
-		CardTexture cardTexture{ texture, intermediateTexture, srvViewOffset++ };
+		CardTexture cardTexture{ texture, srvOffset++ };
 		std::string cardName = std::filesystem::path(textureFile).stem().string();
 		this->cardTextureMap.insert(std::pair(cardName, cardTexture));
 
@@ -496,6 +617,11 @@ bool Application::LoadCardTextures()
 		region.NumSubresources = 1;
 		this->commandList->DiscardResource(intermediateTexture.Get(), &region);
 	}
+
+	// Now go tell the GPU to transfer the textures from slow GPU memory to fast GPU memory.  Stall until the operation is complete.
+	this->commandList->Close();
+	this->ExecuteCommandList();
+	this->WaitForGPUIdle();
 
 	return true;
 }
@@ -528,6 +654,7 @@ void Application::Shutdown(HINSTANCE instance)
 		this->generalFenceEvent = NULL;
 	}
 
+	this->cardVertexBuffer = nullptr;
 	this->generalFence = nullptr;
 	this->generalCommandAllocator = nullptr;
 	this->cardTextureMap.clear();
@@ -612,7 +739,7 @@ void Application::Render()
 	
 	// Have our command list take memory for commands from the frame's command allocator.
 	// This also opens the command list for recording.
-	result = this->commandList->Reset(frame.commandAllocator.Get(), nullptr);
+	result = this->commandList->Reset(frame.commandAllocator.Get(), this->pipelineState.Get());
 	assert(SUCCEEDED(result));
 
 	// Indicate the back-buffer usage as a render target.  I think that the GPU can stall itself here in such cases if the resource was being used in a different way.
