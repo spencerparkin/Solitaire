@@ -1,2 +1,4 @@
-# SpiderSolitaire
-This is an implementation of the game Spider Solitaire using C++ and DirectX 12.
+# Solitaire
+
+This is an implementation of a few variations of Soliatire.
+It is being written as an exercise in learning DirectX 12.
