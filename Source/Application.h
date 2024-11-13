@@ -8,6 +8,7 @@
 #include <d3dcompiler.h>
 #include <wrl.h>
 #include <filesystem>
+#include <unordered_map>
 
 using Microsoft::WRL::ComPtr;
 
@@ -34,6 +35,7 @@ private:
 	void StallUntilFrameCompleteIfNecessary(SwapFrame& frame);
 	bool FindAssetDirectory(const std::string& folderName, std::filesystem::path& folderPath);
 	std::string GetErrorMessageFromBlob(ID3DBlob* errorBlob);
+	bool LoadCardTextures();
 
 	struct SwapFrame
 	{
@@ -55,4 +57,9 @@ private:
 	ComPtr<ID3D12DescriptorHeap> srvHeap;
 	ComPtr<ID3D12RootSignature> rootSignature;
 	ComPtr<ID3D12PipelineState> pipelineState;
+	ComPtr<ID3D12CommandAllocator> generalCommandAllocator;
+	HANDLE generalFenceEvent;
+	ComPtr<ID3D12Fence> generalFence;
+	UINT64 generalCount;
+	std::unordered_map<std::string, ComPtr<ID3D12Resource>> cardTextureMap;
 };

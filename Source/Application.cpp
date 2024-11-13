@@ -9,6 +9,8 @@ Application::Application()
 {
 	this->windowHandle = NULL;
 	this->rtvDescriptorSize = 0;
+	this->generalFenceEvent = NULL;
+	this->generalCount = 0L;
 
 	for (int i = 0; i < _countof(this->swapFrame); i++)
 	{
@@ -231,6 +233,30 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		}
 	}
 
+	result = this->device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&this->generalCommandAllocator));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create general command allocator.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	result = this->device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&this->generalFence));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create general fence.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	this->generalFenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (this->generalFenceEvent == nullptr)
+	{
+		std::string error = std::format("Failed to create general fence event.  Error code: {:x}", GetLastError());
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
 	CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
 	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
@@ -336,9 +362,9 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	// Note that the command-allocator we pass in here is arbitrary for now.  We will typically reset
-	// the command list to the desired command-allocator before each GPU submission for each swap-frame.
-	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->swapFrame[0].commandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
+	// Note that the command list is created in the recording state.  We'll take advantage of this
+	// by subsequently using the command list to upload textures and vertex buffers into GPU memory.
+	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->generalCommandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
 	if (FAILED(result))
 	{
 		std::string error = std::format("Failed to create command list.  Error code: {:x}", result);
@@ -346,13 +372,23 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	// Command-lists are created in the recording state, but we're not ready to record, so just close it now.  It is re-opened when it is reset.
+	// This loads textures into CPU memory, then populates the command list with commands to upload those textures into GPU memory.
+	if (!this->LoadCardTextures())
+		return false;
+	
 	this->commandList->Close();
 
-	// TODO: Wait on GPU here to upload vertex buffers and textures into GPU memory.
+	// TODO: Execute the command list.
+
+	this->WaitForGPUIdle();
 
 	ShowWindow(this->windowHandle, cmdShow);
 
+	return true;
+}
+
+bool Application::LoadCardTextures()
+{
 	return true;
 }
 
@@ -369,6 +405,7 @@ void Application::Shutdown(HINSTANCE instance)
 		SwapFrame& frame = this->swapFrame[i];
 		frame.renderTarget = nullptr;
 		frame.commandAllocator = nullptr;
+		frame.fence = nullptr;
 
 		if (frame.fenceEvent != NULL)
 		{
@@ -377,6 +414,15 @@ void Application::Shutdown(HINSTANCE instance)
 		}
 	}
 
+	if (this->generalFenceEvent != NULL)
+	{
+		CloseHandle(this->generalFenceEvent);
+		this->generalFenceEvent = NULL;
+	}
+
+	this->generalFence = nullptr;
+	this->generalCommandAllocator = nullptr;
+	this->cardTextureMap.clear();
 	this->swapChain = nullptr;
 	this->commandQueue = nullptr;
 	this->rtvHeap = nullptr;
@@ -517,8 +563,12 @@ void Application::StallUntilFrameCompleteIfNecessary(SwapFrame& frame)
 
 void Application::WaitForGPUIdle()
 {
-	for (int i = 0; i < _countof(this->swapFrame); i++)
-		this->StallUntilFrameCompleteIfNecessary(this->swapFrame[i]);
+	this->commandQueue->Signal(this->generalFence.Get(), ++this->generalCount);
+
+	HRESULT result = this->generalFence->SetEventOnCompletion(this->generalCount, this->generalFenceEvent);
+	assert(SUCCEEDED(result));
+
+	WaitForSingleObjectEx(this->generalFenceEvent, INFINITE, FALSE);
 }
 
 /*static*/ LRESULT CALLBACK Application::WindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
