@@ -378,10 +378,13 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	if (!this->LoadCardTextures())
 		return false;
 	
+	// We're done recording commands to setup the GPU memory.
 	this->commandList->Close();
 
-	// TODO: Execute the command list.
+	// Now kick-off the GPU to move all textures from slow GPU memory to fast GPU memory.
+	this->ExecuteCommandList();
 
+	// We're not ready to continue until the uploads are complete.
 	this->WaitForGPUIdle();
 
 	ShowWindow(this->windowHandle, cmdShow);
@@ -391,8 +394,72 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 bool Application::LoadCardTextures()
 {
-	// See: https://github.com/microsoft/DirectXTK12/wiki/ResourceUploadBatch
+	// Note that we record a bunch of commands here with the expectation that
+	// the caller has the command list ready and will at some point execute
+	// those commands once we're finished here.
 	// See: https://github.com/microsoft/DirectXTK12/wiki/DDSTextureLoader
+
+	// Locate our texture asset directory.
+	std::filesystem::path folderPath;
+	if (!this->FindAssetDirectory("Textures", folderPath))
+	{
+		MessageBox(NULL, "Failed to locate textures directory.", "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Walk the textures in our asset folder, loading each one as we go.
+	for (const auto& entry : std::filesystem::directory_iterator(folderPath))
+	{
+		std::string ext = entry.path().extension().string();
+		if (ext != ".dds")
+			continue;
+
+		// Load the texture into a portion of GPU memory that has CPU-access.  This isn't good, however,
+		// for frequent GPU-access by shaders.  We'll move it into a better portion of GPU memory momentarily.
+		// For now, we make a call into the tool-kit for convenience.  It creates a committed resource on the GPU,
+		// then maps it into CPU memory so that it can do a copy of the texture from CPU memory to GPU memory.
+		std::wstring ddsFilePath = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(entry.path().string());
+		std::unique_ptr<uint8_t[]> ddsData;
+		std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+		ComPtr<ID3D12Resource> textureForUpload;
+		HRESULT result = LoadDDSTextureFromFile(this->device.Get(), ddsFilePath.c_str(), &textureForUpload, ddsData, subresources);
+		if (FAILED(result))
+		{
+			std::string error = std::format("Failed to load texture \"{}\".  Error code: {:x}", entry.path().string().c_str(), result);
+			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+
+		// Reserve room in GPU memory for the texture that is quick to access from a shader.
+		UINT64 uploadBufferSize = GetRequiredIntermediateSize(textureForUpload.Get(), 0, (UINT)subresources.size());
+		ComPtr<ID3D12Resource> texture;
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+		auto textureDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+		result = this->device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&textureDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&texture));
+		if (FAILED(result))
+		{
+			std::string error = std::format("Failed to create resource for texture with high GPU availability.  Error code: {:x}", result);
+			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+
+		// Record commands that will move the texture from the slow GPU memory to the fast GPU memory.
+		UpdateSubresources(this->commandList.Get(), texture.Get(), textureForUpload.Get(), 0, 0, (UINT)subresources.size(), subresources.data());
+
+		// Now record a command that transitions the resource state of the texture from a destination for copying to something meant to be used by a pixel shader.
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		this->commandList->ResourceBarrier(1, &barrier);
+
+		// Lastly, store our CPU-side reference to the resource so that we can access it during render time.
+		std::string cardName = entry.path().stem().string();
+		this->cardTextureMap.insert(std::pair(cardName, texture.Get()));
+	}
 
 	return true;
 }
@@ -514,7 +581,7 @@ void Application::Render()
 
 	// Indicate the back-buffer usage as a render target.  I think that the GPU can stall itself here in such cases if the resource was being used in a different way.
 	// For example, maybe a shadow buffer is being used as a render target and then some other command list wants to use it as a shader resource.  I have no idea.
-	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(frame.renderTarget.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(frame.renderTarget.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	this->commandList->ResourceBarrier(1, &barrier);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart(), i, this->rtvDescriptorSize);
@@ -531,8 +598,7 @@ void Application::Render()
 	assert(SUCCEEDED(result));
 
 	// Tell the GPU to start executing the command list.
-	ID3D12CommandList* comandListArray[] = { this->commandList.Get() };
-	this->commandQueue->ExecuteCommandLists(_countof(comandListArray), comandListArray);
+	this->ExecuteCommandList();
 
 	// Tell the driver that frame "i" can now be presented as far as we're concerned.  However, the GPU
 	// might not actually be done rendering the frame, so I'm not sure how that's handled internally.
@@ -549,18 +615,26 @@ void Application::Render()
 	this->commandQueue->Signal(frame.fence.Get(), ++frame.count);
 }
 
+void Application::ExecuteCommandList()
+{
+	ID3D12CommandList* comandListArray[] = { this->commandList.Get() };
+	this->commandQueue->ExecuteCommandLists(_countof(comandListArray), comandListArray);
+}
+
 void Application::StallUntilFrameCompleteIfNecessary(SwapFrame& frame)
 {
 	// Do we need to stall here waiting for the GPU?
 	UINT64 currentFenceValue = frame.fence->GetCompletedValue();
 	if (currentFenceValue < frame.count)
 	{
+		// Yes.  Configure our fence to set the desired value when it's triggered as complete.
 		HRESULT result = frame.fence->SetEventOnCompletion(frame.count, frame.fenceEvent);
 		assert(SUCCEEDED(result));
 
 		// Let our thread go dormant until we're woken up by completion of the event.
 		WaitForSingleObjectEx(frame.fenceEvent, INFINITE, FALSE);
 
+		// Do a quick sanity check here for my sake.
 		currentFenceValue = frame.fence->GetCompletedValue();
 		assert(currentFenceValue == frame.count);
 	}

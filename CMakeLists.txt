@@ -10,14 +10,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(DirectXTK12)
 
-set(SPIDER_SOURCES
+set(SOLITAIRE_SOURCES
     Source/Main.cpp
     Source/Main.h
     Source/Application.cpp
     Source/Application.h
 )
 
-add_executable(Solitaire WIN32 ${SPIDER_SOURCES})
+add_executable(Solitaire WIN32 ${SOLITAIRE_SOURCES})
 
 target_compile_definitions(Solitaire PRIVATE
     _USE_MATH_DEFINES

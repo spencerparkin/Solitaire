@@ -38,6 +38,7 @@ private:
 	bool FindAssetDirectory(const std::string& folderName, std::filesystem::path& folderPath);
 	std::string GetErrorMessageFromBlob(ID3DBlob* errorBlob);
 	bool LoadCardTextures();
+	void ExecuteCommandList();
 
 	struct SwapFrame
 	{
