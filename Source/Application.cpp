@@ -368,6 +368,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	psoDesc.NumRenderTargets = 1;
 	psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	psoDesc.SampleDesc.Count = 1;
+	psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
 	
 	result = this->device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&this->pipelineState));
 	if (FAILED(result))
