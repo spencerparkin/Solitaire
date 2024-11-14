@@ -25,7 +25,7 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 		auto pile = std::make_shared<CascadingCardPile>();
 		this->cardPileArray.push_back(pile);
 
-		for (int j = 0; j < ((i < 5) ? 6 : 5); j++)
+		for (int j = 0; j < ((i < 4) ? 6 : 5); j++)
 		{
 			std::shared_ptr<Card> card = this->cardArray.back();
 			card->orientation = Card::Orientation::FACE_DOWN;

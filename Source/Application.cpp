@@ -10,7 +10,7 @@ using namespace DirectX;
 
 Application::Application()
 {
-	this->maxCardDrawCalls = 512;
+	this->maxCardDrawCallsPerSwapFrame = 128;
 	this->windowHandle = NULL;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
@@ -27,13 +27,6 @@ Application::Application()
 
 	this->cardSize.min = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 	this->cardSize.max = XMVectorSet(cardWidth, cardWidth / cardAspectRatio, 0.0f, 1.0f);
-
-	for (int i = 0; i < _countof(this->swapFrame); i++)
-	{
-		SwapFrame& frame = this->swapFrame[i];
-		frame.count = 0L;
-		frame.fenceEvent = NULL;
-	}
 }
 
 /*virtual*/ Application::~Application()
@@ -188,7 +181,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	// TODO: Handle window resizing by recreating the swap-chain as necessary?  Make sure to share code between that process and our setup here.
 	ComPtr<IDXGISwapChain1> swapChain1;
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-	swapChainDesc.BufferCount = _countof(this->swapFrame);
+	swapChainDesc.BufferCount = 2;		// Note that this number could be increased without breaking the program (in theory), but latency would increase.
 	swapChainDesc.Width = width;
 	swapChainDesc.Height = height;
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -231,9 +224,10 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	UINT rtvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart());
+	this->swapFrameArray.resize(rtvHeapDesc.NumDescriptors);
 	for (int i = 0; i < rtvHeapDesc.NumDescriptors; i++)
 	{
-		SwapFrame& frame = this->swapFrame[i];
+		SwapFrame& frame = this->swapFrameArray[i];
 
 		result = this->swapChain->GetBuffer(i, IID_PPV_ARGS(&frame.renderTarget));
 		if (FAILED(result))
@@ -310,9 +304,9 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	D3D12_STATIC_SAMPLER_DESC samplerDesc{};
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	samplerDesc.MipLODBias = 0;
 	samplerDesc.MaxAnisotropy = 0;
 	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
@@ -425,7 +419,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	// Reserve some space in slow GPU memory for constants buffers.  Whenever the GPU
 	// wants to read the memory, it has to be marsheled over (whatever the hell that means).
 	// How else am I supposed to do this?  Is there a better way?
-	UINT constantsBufferSize = sizeof(CardConstantsBuffer) * this->maxCardDrawCalls;
+	UINT constantsBufferSize = sizeof(CardConstantsBuffer) * this->maxCardDrawCallsPerSwapFrame * this->swapFrameArray.size();
 	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 	auto constantsBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantsBufferSize);
 	result = this->device->CreateCommittedResource(
@@ -456,7 +450,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	// Create a descriptor heap for constants buffers.
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc{};
-	cbvHeapDesc.NumDescriptors = this->maxCardDrawCalls;
+	cbvHeapDesc.NumDescriptors = this->maxCardDrawCallsPerSwapFrame * this->swapFrameArray.size();
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	result = this->device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&this->cbvHeap));
@@ -765,9 +759,8 @@ void Application::Shutdown(HINSTANCE instance)
 	
 	this->cardGame.reset();
 
-	for (int i = 0; i < _countof(this->swapFrame); i++)
+	for (SwapFrame& frame : this->swapFrameArray)
 	{
-		SwapFrame& frame = this->swapFrame[i];
 		frame.renderTarget = nullptr;
 		frame.commandAllocator = nullptr;
 		frame.fence = nullptr;
@@ -778,6 +771,8 @@ void Application::Shutdown(HINSTANCE instance)
 			frame.fenceEvent = NULL;
 		}
 	}
+
+	this->swapFrameArray.clear();
 
 	if (this->generalFenceEvent != NULL)
 	{
@@ -866,7 +861,7 @@ void Application::Render()
 
 	// We want to render frame "i" of the swap-chain.
 	UINT i = this->swapChain->GetCurrentBackBufferIndex();
-	SwapFrame& frame = this->swapFrame[i];
+	SwapFrame& frame = this->swapFrameArray[i];
 
 	// Wait if necessary for frame "i" to finish being rendered with the commands we issued last time around.
 	this->StallUntilFrameCompleteIfNecessary(frame);
@@ -906,7 +901,7 @@ void Application::Render()
 		this->cardGame->GenerateRenderList(cardRenderList);
 		for (auto card : cardRenderList)
 		{
-			if (drawCallCount >= this->maxCardDrawCalls)
+			if (drawCallCount >= this->maxCardDrawCallsPerSwapFrame)
 				break;
 
 			this->RenderCard(card, drawCallCount++);
@@ -991,7 +986,9 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 	const CardTexture& cardTexture = pair->second;
 
 	// Fill out our constants buffer for this draw call.
-	auto cardConstantsBufferData = &reinterpret_cast<CardConstantsBuffer*>(this->cardConstantsBufferPtr)[drawCallCount];
+	UINT i = this->swapChain->GetCurrentBackBufferIndex();
+	UINT j = i * this->maxCardDrawCallsPerSwapFrame + drawCallCount;
+	auto cardConstantsBufferData = &reinterpret_cast<CardConstantsBuffer*>(this->cardConstantsBufferPtr)[j];
 	cardConstantsBufferData->objToProj = objToWorld * this->worldToProj;
 
 	// Use the desired texture.
@@ -1005,7 +1002,7 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 	descriptorHeapArray[0] = { this->cbvHeap.Get() };
 	this->commandList->SetDescriptorHeaps(_countof(descriptorHeapArray), descriptorHeapArray);
 	UINT cbvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(this->cbvHeap->GetGPUDescriptorHandleForHeapStart(), drawCallCount, cbvDescriptorSize);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(this->cbvHeap->GetGPUDescriptorHandleForHeapStart(), j, cbvDescriptorSize);
 	this->commandList->SetGraphicsRootDescriptorTable(1, cbvHandle);
 
 	// TODO: We might not need to call these for each card.  Maybe just once before drawing all cards.

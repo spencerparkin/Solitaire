@@ -71,7 +71,7 @@ private:
 	struct CardConstantsBuffer
 	{
 		DirectX::XMMATRIX objToProj;		// This is an object-space to projection-space matrix.
-		UINT8 pad[192];			// Pad the buffer so that its size is a multiple of 256 bytes.
+		UINT8 pad[192];			// Pad the buffer so that its size is a multiple of 256 bytes.  This is a requirement.
 	};
 
 	HWND windowHandle;
@@ -80,7 +80,7 @@ private:
 	ComPtr<ID3D12Device> device;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 	ComPtr<IDXGISwapChain3> swapChain;
-	SwapFrame swapFrame[2];
+	std::vector<SwapFrame> swapFrameArray;
 	ComPtr<ID3D12DescriptorHeap> rtvHeap;
 	ComPtr<ID3D12GraphicsCommandList> commandList;
 	ComPtr<ID3D12DescriptorHeap> srvHeap;
@@ -96,7 +96,7 @@ private:
 	std::shared_ptr<SolitaireGame> cardGame;
 	ComPtr<ID3D12Resource> cardConstantsBuffer;
 	ComPtr<ID3D12DescriptorHeap> cbvHeap;
-	UINT maxCardDrawCalls;
+	UINT maxCardDrawCallsPerSwapFrame;
 	UINT8* cardConstantsBufferPtr;
 	DirectX::XMMATRIX worldToProj;
 	Box worldExtents;
