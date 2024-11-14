@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <DDSTextureLoader.h>
 #include <DirectXMath.h>
+#include "SolitaireGame.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -40,6 +41,7 @@ private:
 	bool LoadCardTextures();
 	bool LoadCardVertexBuffer();
 	void ExecuteCommandList();
+	void RenderCard(const SolitaireGame::Card* card);
 
 	struct SwapFrame
 	{
@@ -63,6 +65,8 @@ private:
 	};
 
 	HWND windowHandle;
+	CD3DX12_VIEWPORT viewport;
+	CD3DX12_RECT scissorRect;
 	ComPtr<ID3D12Device> device;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 	ComPtr<IDXGISwapChain3> swapChain;
@@ -80,4 +84,5 @@ private:
 	std::unordered_map<std::string, CardTexture> cardTextureMap;
 	ComPtr<ID3D12Resource> cardVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW cardVertexBufferView;
+	std::shared_ptr<SolitaireGame> cardGame;
 };

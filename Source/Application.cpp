@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "SpiderSolitaireGame.h"
 #include <string>
 #include <format>
 #include <locale>
@@ -13,7 +14,9 @@ Application::Application()
 	this->rtvDescriptorSize = 0;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
-	::ZeroMemory(&this->cardVertexBufferView, sizeof(cardVertexBufferView));
+	::ZeroMemory(&this->cardVertexBufferView, sizeof(this->cardVertexBufferView));
+	::ZeroMemory(&this->viewport, sizeof(this->viewport));
+	::ZeroMemory(&this->scissorRect, sizeof(this->scissorRect));
 
 	for (int i = 0; i < _countof(this->swapFrame); i++)
 	{
@@ -149,6 +152,17 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
+	this->viewport.TopLeftX = 0;
+	this->viewport.TopLeftY = 0;
+	this->viewport.Width = width;
+	this->viewport.Height = height;
+
+	this->scissorRect.left = 0;
+	this->scissorRect.right = width;
+	this->scissorRect.top = 0;
+	this->scissorRect.bottom = height;
+
+	// TODO: Handle window resizing by recreating the swap-chain as necessary?  Make sure to share code between that process and our setup here.
 	ComPtr<IDXGISwapChain1> swapChain1;
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 	swapChainDesc.BufferCount = _countof(this->swapFrame);
@@ -383,6 +397,15 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	if (!this->LoadCardVertexBuffer())
 		return false;
 
+#if defined _DEBUG
+	std::srand(0);	// In debug, always seed with zero for consistent bug reproduction.
+#else
+	std::srand(std::time(nullptr));
+#endif
+
+	this->cardGame = std::make_shared<SpiderSolitaireGame>();
+	this->cardGame->NewGame();
+
 	ShowWindow(this->windowHandle, cmdShow);
 
 	return true;
@@ -393,10 +416,15 @@ bool Application::LoadCardVertexBuffer()
 	// Here is the vertex buffer data, plain and simple.
 	CardVertex cardVertexArray[] =
 	{
+		// First triangle...
 		{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
 		{ { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
 		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } }
+
+		// Second triangle...
+		{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
+		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
 	};
 
 	// Get ready to generate a new command list.  This will open the command list for recording.
@@ -633,6 +661,8 @@ void Application::Shutdown(HINSTANCE instance)
 	// either here or when the destructors are called.
 	this->WaitForGPUIdle();
 	
+	this->cardGame.reset();
+
 	for (int i = 0; i < _countof(this->swapFrame); i++)
 	{
 		SwapFrame& frame = this->swapFrame[i];
@@ -751,6 +781,28 @@ void Application::Render()
 	const float clearColor[] = { 0.0f, 0.5f, 0.0f, 1.0f };
 	this->commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
+	this->commandList->SetGraphicsRootSignature(this->rootSignature.Get());
+
+	ID3D12DescriptorHeap* descriptorHeapArray[] = { this->srvHeap.Get() };
+	this->commandList->SetDescriptorHeaps(_countof(descriptorHeapArray), descriptorHeapArray);
+
+	this->commandList->RSSetViewports(1, &this->viewport);
+	this->commandList->RSSetScissorRects(1, &this->scissorRect);
+
+	// Rendering our scene boils down to nothing more than just drawing a bunch of cards.
+	if (this->cardGame.get())
+	{
+		std::vector<const SolitaireGame::Card*> cardRenderList;
+		this->cardGame->GenerateRenderList(cardRenderList);
+		for (auto card : cardRenderList)
+		{
+			this->RenderCard(card);
+
+			// DEBUG: Just render one card for now.  No sense in doing more than one until we figure out the constant buffer.
+			break;
+		}
+	}
+
 	// Indicate that the back-buffer can now be used to present.
 	barrier = CD3DX12_RESOURCE_BARRIER::Transition(frame.renderTarget.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 	this->commandList->ResourceBarrier(1, &barrier);
@@ -810,6 +862,32 @@ void Application::WaitForGPUIdle()
 	assert(SUCCEEDED(result));
 
 	WaitForSingleObjectEx(this->generalFenceEvent, INFINITE, FALSE);
+}
+
+void Application::RenderCard(const SolitaireGame::Card* card)
+{
+	// Note that here we're assuming that the command list is in the record state,
+	// ready for us to record rendering commands.
+
+	std::string renderKey = card->GetRenderKey();
+	auto pair = this->cardTextureMap.find(renderKey);
+	if (pair == this->cardTextureMap.end())
+		return;
+
+	const CardTexture& cardTexture = pair->second;
+
+	// Does this make any sense?
+	UINT srvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle(this->srvHeap->GetGPUDescriptorHandleForHeapStart(), cardTexture.srvOffset, srvDescriptorSize);
+	this->commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
+
+	// TODO: We might not need to call these for each card.  Maybe just once before drawing all cards.
+	this->commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	this->commandList->IASetVertexBuffers(0, 1, &this->cardVertexBufferView);
+
+	// TODO: Setup the constant buffer here so that the card is drawn where we want it.
+
+	this->commandList->DrawInstanced(6, 1, 0, 0);
 }
 
 /*static*/ LRESULT CALLBACK Application::WindowProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
