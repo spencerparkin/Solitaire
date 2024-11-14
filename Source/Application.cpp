@@ -11,7 +11,6 @@ using namespace DirectX;
 Application::Application()
 {
 	this->windowHandle = NULL;
-	this->rtvDescriptorSize = 0;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
 	::ZeroMemory(&this->cardVertexBufferView, sizeof(this->cardVertexBufferView));
@@ -206,8 +205,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	this->rtvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
+	UINT rtvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart());
 	for (int i = 0; i < rtvHeapDesc.NumDescriptors; i++)
 	{
@@ -223,7 +221,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 		this->device->CreateRenderTargetView(frame.renderTarget.Get(), nullptr, rtvHandle);
 
-		rtvHandle.Offset(1, this->rtvDescriptorSize);
+		rtvHandle.Offset(1, rtvDescriptorSize);
 
 		result = this->device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&frame.commandAllocator));
 		if (FAILED(result))
@@ -417,14 +415,14 @@ bool Application::LoadCardVertexBuffer()
 	CardVertex cardVertexArray[] =
 	{
 		// First triangle...
-		{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { 1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+		{ { 0.5f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+		{ { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
 
 		// Second triangle...
-		{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+		{ { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 0.0f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
 	};
 
 	// Get ready to generate a new command list.  This will open the command list for recording.
@@ -776,7 +774,8 @@ void Application::Render()
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(frame.renderTarget.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	this->commandList->ResourceBarrier(1, &barrier);
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart(), i, this->rtvDescriptorSize);
+	UINT rtvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart(), i, rtvDescriptorSize);
 
 	const float clearColor[] = { 0.0f, 0.5f, 0.0f, 1.0f };
 	this->commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);

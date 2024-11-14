@@ -72,7 +72,6 @@ private:
 	ComPtr<IDXGISwapChain3> swapChain;
 	SwapFrame swapFrame[2];
 	ComPtr<ID3D12DescriptorHeap> rtvHeap;
-	UINT rtvDescriptorSize;
 	ComPtr<ID3D12GraphicsCommandList> commandList;
 	ComPtr<ID3D12DescriptorHeap> srvHeap;
 	ComPtr<ID3D12RootSignature> rootSignature;
