@@ -13,6 +13,7 @@ Application::Application()
 	this->windowHandle = NULL;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
+	this->cardConstantsBufferPtr = nullptr;
 	::ZeroMemory(&this->cardVertexBufferView, sizeof(this->cardVertexBufferView));
 	::ZeroMemory(&this->viewport, sizeof(this->viewport));
 	::ZeroMemory(&this->scissorRect, sizeof(this->scissorRect));
@@ -276,11 +277,13 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
+	CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
 	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
-	CD3DX12_ROOT_PARAMETER1 rootParameters[1];
+	CD3DX12_ROOT_PARAMETER1 rootParameters[2];
 	rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_PIXEL);
+	rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_VERTEX);
 
 	D3D12_STATIC_SAMPLER_DESC samplerDesc{};
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
@@ -297,8 +300,14 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	samplerDesc.RegisterSpace = 0;
 	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &samplerDesc, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &samplerDesc, rootSignatureFlags);
 
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
@@ -317,6 +326,8 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
 		return false;
 	}
+
+	this->rootSignature->SetName(L"Root Signature");
 
 	ComPtr<ID3DBlob> vertexShaderBlob;
 	ComPtr<ID3DBlob> pixelShaderBlob;
@@ -387,6 +398,57 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	}
 
 	this->pipelineState->SetName(L"Pipeline State");
+
+	// Reserve some space in slow GPU memory for the constants buffer.  Whenever the GPU
+	// wants to read the memory, it has to be marsheled over (whatever the hell that means),
+	// but supposedly, since it's so little data, it's not that big of a deal?
+	UINT constantsBufferSize = sizeof(CardConstantsBuffer);
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+	auto constantsBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantsBufferSize);
+	result = this->device->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&constantsBufferDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&this->cardConstantsBuffer));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create constants buffer.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Map the constants buffer into CPU memory.  This is so that we can update it each draw-call as necessary.
+	// Nothing wrong with just leaving it mapped for the life of the resource.
+	CD3DX12_RANGE readRange(0, 0);		// This means we never need to read from the buffer.  We only write to it.
+	result = this->cardConstantsBuffer->Map(0, &readRange, reinterpret_cast<void**>(&this->cardConstantsBufferPtr));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to map constants buffer.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+	::ZeroMemory(this->cardConstantsBufferPtr, sizeof(CardConstantsBuffer));
+
+	// Create a descriptor heap for constants buffers.  We'll only need one of them.
+	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc{};
+	cbvHeapDesc.NumDescriptors = 1;
+	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	result = this->device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&this->cbvHeap));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create descriptor heap for constants buffers.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	// Now create a view into the constants buffer.
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
+	cbvDesc.BufferLocation = this->cardConstantsBuffer->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = constantsBufferSize;
+	this->device->CreateConstantBufferView(&cbvDesc, this->cbvHeap->GetCPUDescriptorHandleForHeapStart());
 
 	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->generalCommandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
 	if (FAILED(result))
@@ -694,6 +756,13 @@ void Application::Shutdown(HINSTANCE instance)
 		this->generalFenceEvent = NULL;
 	}
 
+	// This releases the resources as far as they're tracked on the CPU, I think,
+	// but this has nothing to do with releasing or discarding resources that have
+	// been reserved on the GPU.  I suppose we could go issue commands to discard
+	// all resources we reserved/committed, but maybe that's just completely unecessary.
+	// Maybe the D3D12 driver takes care of having the GPU free all its memory that we used?
+	this->cbvHeap = nullptr;
+	this->cardConstantsBuffer = nullptr;
 	this->cardVertexBuffer = nullptr;
 	this->generalFence = nullptr;
 	this->generalCommandAllocator = nullptr;
@@ -797,9 +866,6 @@ void Application::Render()
 
 	this->commandList->SetGraphicsRootSignature(this->rootSignature.Get());
 
-	ID3D12DescriptorHeap* descriptorHeapArray[] = { this->srvHeap.Get() };
-	this->commandList->SetDescriptorHeaps(_countof(descriptorHeapArray), descriptorHeapArray);
-
 	this->commandList->RSSetViewports(1, &this->viewport);
 	this->commandList->RSSetScissorRects(1, &this->scissorRect);
 
@@ -890,10 +956,20 @@ void Application::RenderCard(const SolitaireGame::Card* card)
 
 	const CardTexture& cardTexture = pair->second;
 
-	// Does this make any sense?
+	auto cardConstantsBufferData = reinterpret_cast<CardConstantsBuffer*>(this->cardConstantsBufferPtr);
+	cardConstantsBufferData->objToProj = XMMatrixIdentity();		// TODO: Figure this out later.  For now, identity is fine.
+
+	// Use the desired texture.
+	ID3D12DescriptorHeap* descriptorHeapArray[] = { this->srvHeap.Get() };		// Note that all of these must be the same type of heap.
+	this->commandList->SetDescriptorHeaps(_countof(descriptorHeapArray), descriptorHeapArray);
 	UINT srvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	CD3DX12_GPU_DESCRIPTOR_HANDLE srvHandle(this->srvHeap->GetGPUDescriptorHandleForHeapStart(), cardTexture.srvOffset, srvDescriptorSize);
 	this->commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
+
+	// Make sure our constants buffer is bound.
+	descriptorHeapArray[0] = { this->cbvHeap.Get() };
+	this->commandList->SetDescriptorHeaps(_countof(descriptorHeapArray), descriptorHeapArray);
+	this->commandList->SetGraphicsRootDescriptorTable(1, this->cbvHeap->GetGPUDescriptorHandleForHeapStart());
 
 	// TODO: We might not need to call these for each card.  Maybe just once before drawing all cards.
 	this->commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

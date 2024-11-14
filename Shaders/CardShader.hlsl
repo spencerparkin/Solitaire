@@ -1,5 +1,11 @@
 // CardShader.hlsl
 
+cbuffer CardConstantsBuffer : register(b0)
+{
+    float4x4 objToProj;
+    float pad[192];
+};
+
 struct PSInput
 {
     float4 position : SV_POSITION;
@@ -13,7 +19,7 @@ PSInput VSMain(float4 position : POSITION, float2 uv : TEXCOORD)
 {
     PSInput output;
     
-    output.position = position;
+    output.position = mul(objToProj, position);
     output.uv = uv;
     
     return output;

@@ -64,6 +64,16 @@ private:
 		DirectX::XMFLOAT2 texCoords;
 	};
 
+	// In practics, the values that go into a constants buffer change each frame,
+	// but they're called constants, because they're constant for the life of a
+	// vertex or pixel shader in one particular draw call.
+	struct CardConstantsBuffer
+	{
+		DirectX::XMMATRIX objToProj;		// This is an object-space to projection-space matrix.
+
+		UINT8 pad[192];			// Pad the buffer so that its size is a multiple of 256 bytes.
+	};
+
 	HWND windowHandle;
 	CD3DX12_VIEWPORT viewport;
 	CD3DX12_RECT scissorRect;
@@ -84,4 +94,7 @@ private:
 	ComPtr<ID3D12Resource> cardVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW cardVertexBufferView;
 	std::shared_ptr<SolitaireGame> cardGame;
+	ComPtr<ID3D12Resource> cardConstantsBuffer;
+	ComPtr<ID3D12DescriptorHeap> cbvHeap;
+	UINT8* cardConstantsBufferPtr;
 };
