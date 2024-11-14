@@ -513,14 +513,14 @@ bool Application::LoadCardVertexBuffer()
 	CardVertex cardVertexArray[] =
 	{
 		// First triangle...
-		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+		{ { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
 
 		// Second triangle...
-		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-		{ { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+		{ { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
 	};
 
 	// Get ready to generate a new command list.  This will open the command list for recording.
