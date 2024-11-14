@@ -9,7 +9,7 @@ struct PSInput
 Texture2D cardTexture : register(t0);
 SamplerState cardSampler : register(s0);
 
-PSInput VSMain(float4 position : POSITION, float4 uv : TEXCOORD)
+PSInput VSMain(float4 position : POSITION, float2 uv : TEXCOORD)
 {
     PSInput output;
     

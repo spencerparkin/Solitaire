@@ -219,6 +219,10 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 			return false;
 		}
 
+		wchar_t renderTargetName[512];
+		wsprintfW(renderTargetName, L"Render Target %d", i);
+		frame.renderTarget->SetName(renderTargetName);
+
 		this->device->CreateRenderTargetView(frame.renderTarget.Get(), nullptr, rtvHandle);
 
 		rtvHandle.Offset(1, rtvDescriptorSize);
@@ -378,6 +382,8 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
+	this->pipelineState->SetName(L"Pipeline State");
+
 	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->generalCommandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
 	if (FAILED(result))
 	{
@@ -385,6 +391,8 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
 		return false;
 	}
+
+	this->commandList->SetName(L"Graphics Command List");
 
 	// Command lists are created in the recording state.  Since no subsequent code assumes
 	// that the command list is already recording, just close it now.
@@ -780,6 +788,8 @@ void Application::Render()
 
 	const float clearColor[] = { 0.0f, 0.5f, 0.0f, 1.0f };
 	this->commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+	this->commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
 	this->commandList->SetGraphicsRootSignature(this->rootSignature.Get());
 
