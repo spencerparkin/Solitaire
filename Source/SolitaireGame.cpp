@@ -84,6 +84,9 @@ SolitaireGame::Card::Card()
 
 std::string SolitaireGame::Card::GetRenderKey() const
 {
+	if (this->orientation == Orientation::FACE_DOWN)
+		return "card_back";
+
 	std::string prefix;
 	switch (this->value)
 	{
