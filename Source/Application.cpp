@@ -10,6 +10,7 @@ using namespace DirectX;
 
 Application::Application()
 {
+	this->maxCardDrawCalls = 512;
 	this->windowHandle = NULL;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
@@ -17,6 +18,15 @@ Application::Application()
 	::ZeroMemory(&this->cardVertexBufferView, sizeof(this->cardVertexBufferView));
 	::ZeroMemory(&this->viewport, sizeof(this->viewport));
 	::ZeroMemory(&this->scissorRect, sizeof(this->scissorRect));
+
+	this->worldExtents.min = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+	this->worldExtents.max = XMVectorSet(150.0f, 100.0f, 0.0f, 1.0f);
+
+	const double cardAspectRatio = 0.68870523415977961432506887052342;
+	const double cardWidth = 12.0f;
+
+	this->cardSize.min = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+	this->cardSize.max = XMVectorSet(cardWidth, cardWidth / cardAspectRatio, 0.0f, 1.0f);
 
 	for (int i = 0; i < _countof(this->swapFrame); i++)
 	{
@@ -161,6 +171,19 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	this->scissorRect.right = width;
 	this->scissorRect.top = 0;
 	this->scissorRect.bottom = height;
+
+	// TODO: This matrix would need to be recalculated every time the window was resized.
+	double aspectRatio = double(width) / double(height);
+	Box adjustedWorldExtents = this->worldExtents;
+	adjustedWorldExtents.ExpandToMatchAspectRatio(aspectRatio);
+	this->worldToProj = XMMatrixOrthographicOffCenterLH(
+		XMVectorGetX(adjustedWorldExtents.min),
+		XMVectorGetX(adjustedWorldExtents.max),
+		XMVectorGetY(adjustedWorldExtents.min),
+		XMVectorGetY(adjustedWorldExtents.max),
+		0.0f,
+		1.0f
+	);
 
 	// TODO: Handle window resizing by recreating the swap-chain as necessary?  Make sure to share code between that process and our setup here.
 	ComPtr<IDXGISwapChain1> swapChain1;
@@ -399,10 +422,10 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	this->pipelineState->SetName(L"Pipeline State");
 
-	// Reserve some space in slow GPU memory for the constants buffer.  Whenever the GPU
-	// wants to read the memory, it has to be marsheled over (whatever the hell that means),
-	// but supposedly, since it's so little data, it's not that big of a deal?
-	UINT constantsBufferSize = sizeof(CardConstantsBuffer);
+	// Reserve some space in slow GPU memory for constants buffers.  Whenever the GPU
+	// wants to read the memory, it has to be marsheled over (whatever the hell that means).
+	// How else am I supposed to do this?  Is there a better way?
+	UINT constantsBufferSize = sizeof(CardConstantsBuffer) * this->maxCardDrawCalls;
 	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 	auto constantsBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantsBufferSize);
 	result = this->device->CreateCommittedResource(
@@ -414,7 +437,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		IID_PPV_ARGS(&this->cardConstantsBuffer));
 	if (FAILED(result))
 	{
-		std::string error = std::format("Failed to create constants buffer.  Error code: {:x}", result);
+		std::string error = std::format("Failed to create constants buffers.  Error code: {:x}", result);
 		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
 		return false;
 	}
@@ -429,11 +452,11 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
 		return false;
 	}
-	::ZeroMemory(this->cardConstantsBufferPtr, sizeof(CardConstantsBuffer));
+	::ZeroMemory(this->cardConstantsBufferPtr, constantsBufferSize);
 
-	// Create a descriptor heap for constants buffers.  We'll only need one of them.
+	// Create a descriptor heap for constants buffers.
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc{};
-	cbvHeapDesc.NumDescriptors = 1;
+	cbvHeapDesc.NumDescriptors = this->maxCardDrawCalls;
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	result = this->device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&this->cbvHeap));
@@ -444,11 +467,17 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	// Now create a view into the constants buffer.
-	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
-	cbvDesc.BufferLocation = this->cardConstantsBuffer->GetGPUVirtualAddress();
-	cbvDesc.SizeInBytes = constantsBufferSize;
-	this->device->CreateConstantBufferView(&cbvDesc, this->cbvHeap->GetCPUDescriptorHandleForHeapStart());
+	// Now create a view into each constants buffer at each heap location.
+	UINT cbvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHandle(this->cbvHeap->GetCPUDescriptorHandleForHeapStart());
+	for (UINT i = 0; i < cbvHeapDesc.NumDescriptors; i++)
+	{
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
+		cbvDesc.BufferLocation = this->cardConstantsBuffer->GetGPUVirtualAddress() + i * sizeof(CardConstantsBuffer);
+		cbvDesc.SizeInBytes = sizeof(CardConstantsBuffer);
+		this->device->CreateConstantBufferView(&cbvDesc, cbvHandle);
+		cbvHandle.Offset(1, cbvDescriptorSize);
+	}
 
 	result = this->device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, this->generalCommandAllocator.Get(), this->pipelineState.Get(), IID_PPV_ARGS(&this->commandList));
 	if (FAILED(result))
@@ -477,7 +506,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 #endif
 
 	this->cardGame = std::make_shared<SpiderSolitaireGame>();
-	this->cardGame->NewGame();
+	this->cardGame->NewGame(this->worldExtents, this->cardSize);
 
 	ShowWindow(this->windowHandle, cmdShow);
 
@@ -491,13 +520,13 @@ bool Application::LoadCardVertexBuffer()
 	{
 		// First triangle...
 		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { 0.5f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
 
 		// Second triangle...
 		{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-		{ { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
-		{ { 0.0f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
+		{ { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
 	};
 
 	// Get ready to generate a new command list.  This will open the command list for recording.
@@ -872,14 +901,15 @@ void Application::Render()
 	// Rendering our scene boils down to nothing more than just drawing a bunch of cards.
 	if (this->cardGame.get())
 	{
+		UINT drawCallCount = 0;
 		std::vector<const SolitaireGame::Card*> cardRenderList;
 		this->cardGame->GenerateRenderList(cardRenderList);
 		for (auto card : cardRenderList)
 		{
-			this->RenderCard(card);
+			if (drawCallCount >= this->maxCardDrawCalls)
+				break;
 
-			// DEBUG: Just render one card for now.  No sense in doing more than one until we figure out the constant buffer.
-			break;
+			this->RenderCard(card, drawCallCount++);
 		}
 	}
 
@@ -944,7 +974,7 @@ void Application::WaitForGPUIdle()
 	WaitForSingleObjectEx(this->generalFenceEvent, INFINITE, FALSE);
 }
 
-void Application::RenderCard(const SolitaireGame::Card* card)
+void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount)
 {
 	// Note that here we're assuming that the command list is in the record state,
 	// ready for us to record rendering commands.
@@ -954,10 +984,15 @@ void Application::RenderCard(const SolitaireGame::Card* card)
 	if (pair == this->cardTextureMap.end())
 		return;
 
+	XMMATRIX scaleMatrix = XMMatrixScaling(this->cardSize.GetWidth(), this->cardSize.GetHeight(), 1.0f);
+	XMMATRIX translationMatrix = XMMatrixTranslation(XMVectorGetX(card->position), XMVectorGetY(card->position), 0.0f);
+	XMMATRIX objToWorld = scaleMatrix * translationMatrix;
+
 	const CardTexture& cardTexture = pair->second;
 
-	auto cardConstantsBufferData = reinterpret_cast<CardConstantsBuffer*>(this->cardConstantsBufferPtr);
-	cardConstantsBufferData->objToProj = XMMatrixIdentity();		// TODO: Figure this out later.  For now, identity is fine.
+	// Fill out our constants buffer for this draw call.
+	auto cardConstantsBufferData = &reinterpret_cast<CardConstantsBuffer*>(this->cardConstantsBufferPtr)[drawCallCount];
+	cardConstantsBufferData->objToProj = objToWorld * this->worldToProj;
 
 	// Use the desired texture.
 	ID3D12DescriptorHeap* descriptorHeapArray[] = { this->srvHeap.Get() };		// Note that all of these must be the same type of heap.
@@ -969,14 +1004,15 @@ void Application::RenderCard(const SolitaireGame::Card* card)
 	// Make sure our constants buffer is bound.
 	descriptorHeapArray[0] = { this->cbvHeap.Get() };
 	this->commandList->SetDescriptorHeaps(_countof(descriptorHeapArray), descriptorHeapArray);
-	this->commandList->SetGraphicsRootDescriptorTable(1, this->cbvHeap->GetGPUDescriptorHandleForHeapStart());
+	UINT cbvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(this->cbvHeap->GetGPUDescriptorHandleForHeapStart(), drawCallCount, cbvDescriptorSize);
+	this->commandList->SetGraphicsRootDescriptorTable(1, cbvHandle);
 
 	// TODO: We might not need to call these for each card.  Maybe just once before drawing all cards.
 	this->commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	this->commandList->IASetVertexBuffers(0, 1, &this->cardVertexBufferView);
 
-	// TODO: Setup the constant buffer here so that the card is drawn where we want it.
-
+	// Finally, make the draw call!
 	this->commandList->DrawInstanced(6, 1, 0, 0);
 }
 

@@ -4,6 +4,7 @@
 #include <memory>
 #include <DirectXMath.h>
 #include <random>
+#include "Box.h"
 
 class SolitaireGame
 {
@@ -13,7 +14,7 @@ public:
 
 	class Card;
 
-	virtual void NewGame() = 0;
+	virtual void NewGame(const Box& worldExtents, const Box& cardSize) = 0;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const;
 	virtual void Clear();
 
@@ -71,7 +72,7 @@ public:
 		virtual ~CardPile();
 
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const = 0;
-		virtual void LayoutCards() = 0;
+		virtual void LayoutCards(const Box& cardSize) = 0;
 
 		std::vector<std::shared_ptr<Card>> cardArray;
 		DirectX::XMVECTOR position;
@@ -84,7 +85,7 @@ public:
 		virtual ~CascadingCardPile();
 
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
-		virtual void LayoutCards() override;
+		virtual void LayoutCards(const Box& cardSize) override;
 
 		enum CascadeDirection
 		{
@@ -102,7 +103,7 @@ public:
 		virtual ~SingularCardPile();
 
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
-		virtual void LayoutCards() override;
+		virtual void LayoutCards(const Box& cardSize) override;
 	};
 
 protected:

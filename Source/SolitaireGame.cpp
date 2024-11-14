@@ -163,7 +163,7 @@ SolitaireGame::CascadingCardPile::CascadingCardPile()
 	}
 }
 
-/*virtual*/ void SolitaireGame::CascadingCardPile::LayoutCards()
+/*virtual*/ void SolitaireGame::CascadingCardPile::LayoutCards(const Box& cardSize)
 {
 	XMVECTOR location = this->position;
 	XMVECTOR delta = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
@@ -171,10 +171,10 @@ SolitaireGame::CascadingCardPile::CascadingCardPile()
 	switch (this->cascadeDirection)
 	{
 	case CascadeDirection::DOWN:
-		delta = XMVectorSet(0.0f, -0.05f, 0.0f, 1.0f);
+		delta = XMVectorSet(0.0f, -cardSize.GetHeight() * 0.2f, 0.0f, 1.0f);
 		break;
 	case CascadeDirection::RIGHT:
-		delta = XMVectorSet(0.05f, 0.0f, 0.0f, 1.0f);
+		delta = XMVectorSet(cardSize.GetWidth() * 0.2f, 0.0f, 0.0f, 1.0f);
 		break;
 	}
 
@@ -208,7 +208,7 @@ SolitaireGame::SingularCardPile::SingularCardPile()
 	}
 }
 
-/*virtual*/ void SolitaireGame::SingularCardPile::LayoutCards()
+/*virtual*/ void SolitaireGame::SingularCardPile::LayoutCards(const Box& cardSize)
 {
 	for (std::shared_ptr<Card>& card : this->cardArray)
 		card->position = this->position;

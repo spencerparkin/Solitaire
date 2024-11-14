@@ -19,6 +19,8 @@ set(SOLITAIRE_SOURCES
     Source/SolitaireGame.h
     Source/SpiderSolitaireGame.cpp
     Source/SpiderSolitaireGame.h
+    Source/Box.cpp
+    Source/Box.h
 )
 
 add_executable(Solitaire WIN32 ${SOLITAIRE_SOURCES})

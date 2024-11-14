@@ -10,7 +10,7 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 {
 }
 
-/*virtual*/ void SpiderSolitaireGame::NewGame()
+/*virtual*/ void SpiderSolitaireGame::NewGame(const Box& worldExtents, const Box& cardSize)
 {
 	this->Clear();
 
@@ -18,7 +18,9 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 	this->GenerateDeck(this->cardArray);
 	this->SuffleCards(this->cardArray);
 
-	for (int i = 0; i < 10; i++)
+	int numPiles = 10;
+
+	for (int i = 0; i < numPiles; i++)
 	{
 		auto pile = std::make_shared<CascadingCardPile>();
 		this->cardPileArray.push_back(pile);
@@ -32,8 +34,12 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 		}
 
 		pile->cardArray[pile->cardArray.size() - 1]->orientation = Card::Orientation::FACE_UP;
-		pile->position = XMVectorSet(0.05f + float(i) * 0.1f, 0.5f, 0.0f, 1.0f);
-		pile->LayoutCards();
+		pile->position = XMVectorSet(
+			(float(i) / float(numPiles - 1)) * (worldExtents.GetWidth() - cardSize.GetWidth()),
+			worldExtents.GetHeight() - cardSize.GetHeight(),
+			0.0f,
+			1.0f);
+		pile->LayoutCards(cardSize);
 	}
 }
 

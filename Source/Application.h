@@ -12,6 +12,7 @@
 #include <DDSTextureLoader.h>
 #include <DirectXMath.h>
 #include "SolitaireGame.h"
+#include "Box.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -41,7 +42,7 @@ private:
 	bool LoadCardTextures();
 	bool LoadCardVertexBuffer();
 	void ExecuteCommandList();
-	void RenderCard(const SolitaireGame::Card* card);
+	void RenderCard(const SolitaireGame::Card* card, UINT drawCallCount);
 
 	struct SwapFrame
 	{
@@ -70,7 +71,6 @@ private:
 	struct CardConstantsBuffer
 	{
 		DirectX::XMMATRIX objToProj;		// This is an object-space to projection-space matrix.
-
 		UINT8 pad[192];			// Pad the buffer so that its size is a multiple of 256 bytes.
 	};
 
@@ -96,5 +96,9 @@ private:
 	std::shared_ptr<SolitaireGame> cardGame;
 	ComPtr<ID3D12Resource> cardConstantsBuffer;
 	ComPtr<ID3D12DescriptorHeap> cbvHeap;
+	UINT maxCardDrawCalls;
 	UINT8* cardConstantsBufferPtr;
+	DirectX::XMMATRIX worldToProj;
+	Box worldExtents;
+	Box cardSize;
 };

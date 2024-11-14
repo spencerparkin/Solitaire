@@ -8,7 +8,7 @@ public:
 	SpiderSolitaireGame();
 	virtual ~SpiderSolitaireGame();
 
-	virtual void NewGame() override;
+	virtual void NewGame(const Box& worldExtents, const Box& cardSize) override;
 	virtual void Clear() override;
 
 private:
