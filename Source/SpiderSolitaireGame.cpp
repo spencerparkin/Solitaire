@@ -108,6 +108,9 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 				card->animationRate = 200.0;
 				this->exitingCardArray.push_back(card);
 			}
+
+			if (cardPile->cardArray.size() > 0)
+				cardPile->cardArray[cardPile->cardArray.size() - 1]->orientation = Card::Orientation::FACE_UP;
 		}
 	}
 }
