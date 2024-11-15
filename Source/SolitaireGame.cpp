@@ -196,15 +196,15 @@ SolitaireGame::CascadingCardPile::CascadingCardPile()
 /*virtual*/ void SolitaireGame::CascadingCardPile::LayoutCards(const Box& cardSize)
 {
 	XMVECTOR location = this->position;
-	XMVECTOR delta = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+	XMVECTOR delta = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
 
 	switch (this->cascadeDirection)
 	{
 	case CascadeDirection::DOWN:
-		delta = XMVectorSet(0.0f, -cardSize.GetHeight() * 0.2f, 0.0f, 1.0f);
+		delta = XMVectorSet(0.0f, -cardSize.GetHeight() * 0.2f, 0.0f, 0.0f);
 		break;
 	case CascadeDirection::RIGHT:
-		delta = XMVectorSet(cardSize.GetWidth() * 0.2f, 0.0f, 0.0f, 1.0f);
+		delta = XMVectorSet(cardSize.GetWidth() * 0.2f, 0.0f, 0.0f, 0.0f);
 		break;
 	}
 

@@ -49,16 +49,74 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 	this->cardArray.clear();
 }
 
-/*virtual*/ void SpiderSolitaireGame::OnGrabAt(DirectX::XMVECTOR worldPoint)
+/*virtual*/ void SpiderSolitaireGame::OnMouseGrabAt(DirectX::XMVECTOR worldPoint)
 {
+	assert(this->movingCardPile.get() == nullptr);
+
 	std::shared_ptr<CardPile> foundCardPile;
 	int foundCardOffset = -1;
 	if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
 	{
-		foundCardOffset = 0;
+		Card* card = foundCardPile->cardArray[foundCardOffset].get();
+		if (card->orientation == Card::Orientation::FACE_UP)
+		{
+			this->movingCardPile = std::make_shared<CascadingCardPile>();
+
+			for (int i = foundCardOffset; i < foundCardPile->cardArray.size(); i++)
+				this->movingCardPile->cardArray.push_back(foundCardPile->cardArray[i]);
+			
+			for (int i = 0; i < this->movingCardPile->cardArray.size(); i++)
+				foundCardPile->cardArray.pop_back();
+
+			this->movingCardPile->position = this->movingCardPile->cardArray[0]->position;
+			this->grabDelta = this->movingCardPile->position - worldPoint;
+			this->originCardPile = foundCardPile;
+		}
 	}
 }
 
-/*virtual*/ void SpiderSolitaireGame::OnReleaseAt(DirectX::XMVECTOR worldPoint)
+/*virtual*/ void SpiderSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
 {
+	if (this->movingCardPile.get())
+	{
+		bool abortCardPileMove = true;
+		std::shared_ptr<CardPile> foundCardPile;
+		int foundCardOffset = -1;
+		if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
+		{
+			Card* card = foundCardPile->cardArray[foundCardOffset].get();
+			if (foundCardOffset == foundCardPile->cardArray.size() - 1 &&
+				int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
+			{
+				abortCardPileMove = false;
+
+				for (auto& movingCard : this->movingCardPile->cardArray)
+					foundCardPile->cardArray.push_back(movingCard);
+
+				foundCardPile->LayoutCards(this->cardSize);
+
+				if (this->originCardPile->cardArray.size() > 0)
+					this->originCardPile->cardArray[this->originCardPile->cardArray.size() - 1]->orientation = Card::Orientation::FACE_UP;
+			}
+		}
+
+		if (abortCardPileMove)
+		{
+			for (auto& movingCard : this->movingCardPile->cardArray)
+				this->originCardPile->cardArray.push_back(movingCard);
+
+			this->originCardPile->LayoutCards(this->cardSize);
+		}
+
+		this->movingCardPile = nullptr;
+	}
+}
+
+/*virtual*/ void SpiderSolitaireGame::OnMouseMove(DirectX::XMVECTOR worldPoint)
+{
+	if (this->movingCardPile.get())
+	{
+		this->movingCardPile->position = worldPoint + this->grabDelta;
+		this->movingCardPile->LayoutCards(this->cardSize);
+	}
 }

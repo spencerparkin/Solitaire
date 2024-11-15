@@ -17,8 +17,9 @@ public:
 	virtual void NewGame() = 0;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const;
 	virtual void Clear();
-	virtual void OnGrabAt(DirectX::XMVECTOR worldPoint) = 0;
-	virtual void OnReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
+	virtual void OnMouseGrabAt(DirectX::XMVECTOR worldPoint) = 0;
+	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
+	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) = 0;
 
 	class Card
 	{
@@ -42,8 +43,8 @@ public:
 			NINE,
 			TEN,
 			JACK,
-			KING,
 			QUEEN,
+			KING,
 			NUM_VALUES
 		};
 

@@ -417,6 +417,11 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	this->pipelineState->SetName(L"Pipeline State");
 
+	// TODO: My rendering might be really slow, because I'm constantly writing to a region of memory
+	//       that the GPU is also trying to read from at the same time.  Maybe create two constants
+	//       buffers, one for each swap-frame?  Would this help?  You should profile before-hand so
+	//       that you can see if the change makes any difference.
+
 	// Reserve some space in slow GPU memory for constants buffers.  Whenever the GPU
 	// wants to read the memory, it has to be marsheled over (whatever the hell that means).
 	// How else am I supposed to do this?  Is there a better way?
@@ -1046,6 +1051,11 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 			app->OnLeftMouseButtonUp(wParam, lParam);
 			break;
 		}
+		case WM_MOUSEMOVE:
+		{
+			app->OnMouseMove(wParam, lParam);
+			break;
+		}
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);
@@ -1061,7 +1071,7 @@ void Application::OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam)
 	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
 
 	if (this->cardGame.get())
-		this->cardGame->OnGrabAt(worldMousePoint);
+		this->cardGame->OnMouseGrabAt(worldMousePoint);
 }
 
 void Application::OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam)
@@ -1069,7 +1079,15 @@ void Application::OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam)
 	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
 
 	if (this->cardGame.get())
-		this->cardGame->OnReleaseAt(worldMousePoint);
+		this->cardGame->OnMouseReleaseAt(worldMousePoint);
+}
+
+void Application::OnMouseMove(WPARAM wParam, LPARAM lParam)
+{
+	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
+
+	if (this->cardGame.get())
+		this->cardGame->OnMouseMove(worldMousePoint);
 }
 
 XMVECTOR Application::MouseLocationToWorldLocation(LPARAM lParam)

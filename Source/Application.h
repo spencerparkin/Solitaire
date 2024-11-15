@@ -46,6 +46,7 @@ private:
 	DirectX::XMVECTOR MouseLocationToWorldLocation(LPARAM lParam);
 	void OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam);
 	void OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam);
+	void OnMouseMove(WPARAM wParam, LPARAM lParam);
 
 	struct SwapFrame
 	{
