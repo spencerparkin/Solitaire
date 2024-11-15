@@ -8,8 +8,20 @@ Box::Box()
 	this->max = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
+Box::Box(const Box& box)
+{
+	this->min = box.min;
+	this->max = box.max;
+}
+
 /*virtual*/ Box::~Box()
 {
+}
+
+void Box::operator=(const Box& box)
+{
+	this->min = box.min;
+	this->max = box.max;
 }
 
 double Box::GetWidth() const
@@ -45,4 +57,41 @@ void Box::ExpandToMatchAspectRatio(double aspectRatio)
 	double eps = 1e-5;
 	assert(::fabsf(newAspectRatio - aspectRatio) < eps);
 #endif
+}
+
+XMVECTOR Box::PointToUVs(XMVECTOR point) const
+{
+	return XMVectorSet(
+		(XMVectorGetX(point) - XMVectorGetX(this->min)) / this->GetWidth(),
+		(XMVectorGetY(point) - XMVectorGetY(this->min)) / this->GetHeight(),
+		0.0f,
+		1.0f
+	);
+}
+
+XMVECTOR Box::PointFromUVs(XMVECTOR uvs) const
+{
+	return XMVectorSet(
+		XMVectorGetX(min) + XMVectorGetX(uvs) * this->GetWidth(),
+		XMVectorGetY(min) + XMVectorGetY(uvs) * this->GetHeight(),
+		0.0f,
+		1.0f
+	);
+}
+
+bool Box::ContainsPoint(DirectX::XMVECTOR point) const
+{
+	if (XMVectorGetX(point) < XMVectorGetX(this->min))
+		return false;
+
+	if (XMVectorGetX(point) > XMVectorGetX(this->max))
+		return false;
+
+	if (XMVectorGetY(point) < XMVectorGetY(this->min))
+		return false;
+
+	if (XMVectorGetY(point) > XMVectorGetY(this->max))
+		return false;
+
+	return true;
 }

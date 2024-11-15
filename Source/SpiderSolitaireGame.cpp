@@ -2,7 +2,7 @@
 
 using namespace DirectX;
 
-SpiderSolitaireGame::SpiderSolitaireGame()
+SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& cardSize) : SolitaireGame(worldExtents, cardSize)
 {
 }
 
@@ -10,7 +10,7 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 {
 }
 
-/*virtual*/ void SpiderSolitaireGame::NewGame(const Box& worldExtents, const Box& cardSize)
+/*virtual*/ void SpiderSolitaireGame::NewGame()
 {
 	this->Clear();
 
@@ -35,11 +35,11 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 
 		pile->cardArray[pile->cardArray.size() - 1]->orientation = Card::Orientation::FACE_UP;
 		pile->position = XMVectorSet(
-			(float(i) / float(numPiles - 1)) * (worldExtents.GetWidth() - cardSize.GetWidth()),
-			worldExtents.GetHeight() - cardSize.GetHeight(),
+			(float(i) / float(numPiles - 1)) * (this->worldExtents.GetWidth() - this->cardSize.GetWidth()),
+			this->worldExtents.GetHeight() - this->cardSize.GetHeight(),
 			0.0f,
 			1.0f);
-		pile->LayoutCards(cardSize);
+		pile->LayoutCards(this->cardSize);
 	}
 }
 
@@ -47,4 +47,18 @@ SpiderSolitaireGame::SpiderSolitaireGame()
 {
 	SolitaireGame::Clear();
 	this->cardArray.clear();
+}
+
+/*virtual*/ void SpiderSolitaireGame::OnGrabAt(DirectX::XMVECTOR worldPoint)
+{
+	std::shared_ptr<CardPile> foundCardPile;
+	int foundCardOffset = -1;
+	if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
+	{
+		foundCardOffset = 0;
+	}
+}
+
+/*virtual*/ void SpiderSolitaireGame::OnReleaseAt(DirectX::XMVECTOR worldPoint)
+{
 }

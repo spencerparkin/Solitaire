@@ -5,6 +5,7 @@
 #include <locale>
 #include <codecvt>
 #include <assert.h>
+#include <windowsx.h>
 
 using namespace DirectX;
 
@@ -167,13 +168,13 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	// TODO: This matrix would need to be recalculated every time the window was resized.
 	double aspectRatio = double(width) / double(height);
-	Box adjustedWorldExtents = this->worldExtents;
-	adjustedWorldExtents.ExpandToMatchAspectRatio(aspectRatio);
+	this->adjustedWorldExtents = this->worldExtents;
+	this->adjustedWorldExtents.ExpandToMatchAspectRatio(aspectRatio);
 	this->worldToProj = XMMatrixOrthographicOffCenterLH(
-		XMVectorGetX(adjustedWorldExtents.min),
-		XMVectorGetX(adjustedWorldExtents.max),
-		XMVectorGetY(adjustedWorldExtents.min),
-		XMVectorGetY(adjustedWorldExtents.max),
+		XMVectorGetX(this->adjustedWorldExtents.min),
+		XMVectorGetX(this->adjustedWorldExtents.max),
+		XMVectorGetY(this->adjustedWorldExtents.min),
+		XMVectorGetY(this->adjustedWorldExtents.max),
 		0.0f,
 		1.0f
 	);
@@ -499,8 +500,8 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	std::srand(std::time(nullptr));
 #endif
 
-	this->cardGame = std::make_shared<SpiderSolitaireGame>();
-	this->cardGame->NewGame(this->worldExtents, this->cardSize);
+	this->cardGame = std::make_shared<SpiderSolitaireGame>(this->worldExtents, this->cardSize);
+	this->cardGame->NewGame();
 
 	ShowWindow(this->windowHandle, cmdShow);
 
@@ -1035,6 +1036,16 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 
 			return 0;
 		}
+		case WM_LBUTTONDOWN:
+		{
+			app->OnLeftMouseButtonDown(wParam, lParam);
+			break;
+		}
+		case WM_LBUTTONUP:
+		{
+			app->OnLeftMouseButtonUp(wParam, lParam);
+			break;
+		}
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);
@@ -1043,4 +1054,48 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 	}
 
 	return DefWindowProc(windowHandle, message, wParam, lParam);
+}
+
+void Application::OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam)
+{
+	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
+
+	if (this->cardGame.get())
+		this->cardGame->OnGrabAt(worldMousePoint);
+}
+
+void Application::OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam)
+{
+	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
+
+	if (this->cardGame.get())
+		this->cardGame->OnReleaseAt(worldMousePoint);
+}
+
+XMVECTOR Application::MouseLocationToWorldLocation(LPARAM lParam)
+{
+	int mouseX = GET_X_LPARAM(lParam);
+	int mouseY = this->viewport.Height - GET_Y_LPARAM(lParam);
+	XMVECTOR mousePoint = XMVectorSet(
+		float(mouseX),
+		float(mouseY),
+		0.0f,
+		1.0f
+	);
+
+	Box viewportBox;
+	viewportBox.min = XMVectorSet(
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f);
+	viewportBox.max = XMVectorSet(
+		float(this->viewport.Width),
+		float(this->viewport.Height),
+		0.0f,
+		1.0f);
+
+	XMVECTOR uvs = viewportBox.PointToUVs(mousePoint);
+	XMVECTOR worldMousePoint = this->adjustedWorldExtents.PointFromUVs(uvs);
+	return worldMousePoint;
 }

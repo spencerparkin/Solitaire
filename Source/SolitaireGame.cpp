@@ -5,8 +5,10 @@ using namespace DirectX;
 
 //----------------------------------- SolitaireGame -----------------------------------
 
-SolitaireGame::SolitaireGame()
+SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 {
+	this->worldExtents = worldExtents;
+	this->cardSize = cardSize;
 }
 
 /*virtual*/ SolitaireGame::~SolitaireGame()
@@ -68,6 +70,26 @@ SolitaireGame::SolitaireGame()
 	this->movingCardPile.reset();
 }
 
+bool SolitaireGame::FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile, int& foundCardOffset)
+{
+	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
+	{
+		// Search from top to bottom to account for Z-order.
+		for (int i = int(cardPile->cardArray.size()) - 1; i >= 0; i--)
+		{
+			std::shared_ptr<Card>& card = cardPile->cardArray[i];
+			if (card->ContainsPoint(worldPoint, this->cardSize))
+			{
+				foundCardPile = cardPile;
+				foundCardOffset = i;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 //----------------------------------- SolitaireGame::Card -----------------------------------
 
 SolitaireGame::Card::Card()
@@ -80,6 +102,14 @@ SolitaireGame::Card::Card()
 
 /*virtual*/ SolitaireGame::Card::~Card()
 {
+}
+
+bool SolitaireGame::Card::ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const
+{
+	Box cardBox = cardSize;
+	cardBox.min += this->position;
+	cardBox.max += this->position;
+	return cardBox.ContainsPoint(point);
 }
 
 std::string SolitaireGame::Card::GetRenderKey() const

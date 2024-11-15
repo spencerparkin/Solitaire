@@ -43,6 +43,9 @@ private:
 	bool LoadCardVertexBuffer();
 	void ExecuteCommandList();
 	void RenderCard(const SolitaireGame::Card* card, UINT drawCallCount);
+	DirectX::XMVECTOR MouseLocationToWorldLocation(LPARAM lParam);
+	void OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam);
+	void OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam);
 
 	struct SwapFrame
 	{
@@ -100,5 +103,6 @@ private:
 	UINT8* cardConstantsBufferPtr;
 	DirectX::XMMATRIX worldToProj;
 	Box worldExtents;
+	Box adjustedWorldExtents;
 	Box cardSize;
 };

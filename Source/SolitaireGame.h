@@ -9,14 +9,16 @@
 class SolitaireGame
 {
 public:
-	SolitaireGame();
+	SolitaireGame(const Box& worldExtents, const Box& cardSize);
 	virtual ~SolitaireGame();
 
 	class Card;
 
-	virtual void NewGame(const Box& worldExtents, const Box& cardSize) = 0;
+	virtual void NewGame() = 0;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const;
 	virtual void Clear();
+	virtual void OnGrabAt(DirectX::XMVECTOR worldPoint) = 0;
+	virtual void OnReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
 
 	class Card
 	{
@@ -25,6 +27,7 @@ public:
 		virtual ~Card();
 
 		std::string GetRenderKey() const;
+		bool ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const;
 
 		enum Value
 		{
@@ -112,6 +115,10 @@ protected:
 	static void SuffleCards(std::vector<std::shared_ptr<Card>>& cardArray);
 	static int RandomInteger(int min, int max);
 
+	bool FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile, int& foundCardOffset);
+
 	std::vector<std::shared_ptr<CardPile>> cardPileArray;
 	std::shared_ptr<CardPile> movingCardPile;
+	Box cardSize;
+	Box worldExtents;
 };
