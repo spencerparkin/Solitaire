@@ -23,6 +23,7 @@ public:
 	virtual void OnCardsNeeded() = 0;
 	virtual void OnKeyUp(uint32_t keyCode) = 0;
 	virtual void Tick(double deltaTimeSeconds);
+	virtual bool GameWon() const = 0;
 
 	class Card
 	{
@@ -61,11 +62,19 @@ public:
 			NUM_SUITES
 		};
 
+		enum Color
+		{
+			BLACK,
+			RED
+		};
+
 		enum Orientation
 		{
 			FACE_UP,
 			FACE_DOWN
 		};
+
+		Color GetColor() const;
 
 		Value value;
 		Suite suite;
@@ -83,6 +92,12 @@ public:
 
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const = 0;
 		virtual void LayoutCards(const Box& cardSize) = 0;
+
+		bool CardsInOrder(int start, int finish) const;
+		bool CardsSameColor(int start, int finish) const;
+		bool CardsSameSuite(int start, int finish) const;
+		bool IndexValid(int i) const;
+		bool ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const;
 
 		std::vector<std::shared_ptr<Card>> cardArray;
 		DirectX::XMVECTOR position;
@@ -123,6 +138,7 @@ protected:
 	static int RandomInteger(int min, int max);
 
 	bool FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile, int& foundCardOffset);
+	bool FindEmptyPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile);
 
 	std::vector<std::shared_ptr<CardPile>> cardPileArray;
 	std::shared_ptr<CardPile> movingCardPile;

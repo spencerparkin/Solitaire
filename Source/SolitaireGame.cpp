@@ -90,6 +90,23 @@ bool SolitaireGame::FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_pt
 	return false;
 }
 
+bool SolitaireGame::FindEmptyPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile)
+{
+	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
+	{
+		if (cardPile->cardArray.size() > 0)
+			continue;
+
+		if (cardPile->ContainsPoint(worldPoint, this->cardSize))
+		{
+			foundCardPile = cardPile;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /*virtual*/ void SolitaireGame::Tick(double deltaTimeSeconds)
 {
 	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
@@ -139,6 +156,21 @@ bool SolitaireGame::Card::ContainsPoint(DirectX::XMVECTOR point, const Box& card
 	cardBox.min += this->position;
 	cardBox.max += this->position;
 	return cardBox.ContainsPoint(point);
+}
+
+SolitaireGame::Card::Color SolitaireGame::Card::GetColor() const
+{
+	switch (this->suite)
+	{
+	case Suite::SPADES:
+	case Suite::CLUBS:
+		return Color::BLACK;
+	case Suite::DIAMONDS:
+	case Suite::HEARTS:
+		return Color::RED;
+	}
+
+	return Color::BLACK;
 }
 
 std::string SolitaireGame::Card::GetRenderKey() const
@@ -195,6 +227,68 @@ SolitaireGame::CardPile::CardPile()
 
 /*virtual*/ SolitaireGame::CardPile::~CardPile()
 {
+}
+
+bool SolitaireGame::CardPile::ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const
+{
+	Box pileBox = cardSize;
+	pileBox.min += this->position;
+	pileBox.max += this->position;
+	return pileBox.ContainsPoint(point);
+}
+
+bool SolitaireGame::CardPile::IndexValid(int i) const
+{
+	return 0 <= i && i < int(this->cardArray.size());
+}
+
+bool SolitaireGame::CardPile::CardsInOrder(int start, int finish) const
+{
+	assert(start <= finish);
+	assert(this->IndexValid(start));
+	assert(this->IndexValid(finish));
+
+	if (start == finish)
+		return true;
+
+	for (int i = start; i < finish; i++)
+	{
+		const Card* cardA = this->cardArray[i].get();
+		const Card* cardB = this->cardArray[i + 1].get();
+
+		if (int(cardA->value) - 1 != int(cardB->value))
+			return false;
+	}
+
+	return true;
+}
+
+bool SolitaireGame::CardPile::CardsSameColor(int start, int finish) const
+{
+	assert(start <= finish);
+	assert(this->IndexValid(start));
+	assert(this->IndexValid(finish));
+
+	Card::Color color = this->cardArray[start]->GetColor();
+	for (int i = start + 1; i <= finish; i++)
+		if (this->cardArray[i]->GetColor() != color)
+			return false;
+
+	return true;
+}
+
+bool SolitaireGame::CardPile::CardsSameSuite(int start, int finish) const
+{
+	assert(start <= finish);
+	assert(this->IndexValid(start));
+	assert(this->IndexValid(finish));
+
+	Card::Suite suite = this->cardArray[start]->suite;
+	for (int i = start + 1; i <= finish; i++)
+		if (this->cardArray[i]->suite != suite)
+			return false;
+
+	return true;
 }
 
 //----------------------------------- SolitaireGame::CascadingCardPile -----------------------------------

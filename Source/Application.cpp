@@ -499,13 +499,14 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	if (!this->LoadCardVertexBuffer())
 		return false;
 
-#if defined _DEBUG
-	std::srand(0);	// In debug, always seed with zero for consistent bug reproduction.
-#else
+//#if defined _DEBUG
+//	std::srand(0);	// In debug, always seed with zero for consistent bug reproduction.
+//#else
 	std::srand(std::time(nullptr));
-#endif
+//#endif
 
-	this->cardGame = std::make_shared<SpiderSolitaireGame>(this->worldExtents, this->cardSize);
+	auto difficultyLevel = SpiderSolitaireGame::DifficultyLevel::LOW;
+	this->cardGame = std::make_shared<SpiderSolitaireGame>(this->worldExtents, this->cardSize, difficultyLevel);
 	this->cardGame->NewGame();
 
 	this->clock.Reset();
@@ -879,7 +880,15 @@ void Application::Tick()
 	}
 
 	if (this->cardGame)
+	{
+		if (this->cardGame->GameWon())
+		{
+			MessageBoxA(this->windowHandle, "You won!", "Yay!", MB_ICONINFORMATION | MB_OK);
+			this->cardGame->NewGame();
+		}
+
 		this->cardGame->Tick(deltaTimeSeconds);
+	}
 }
 
 void Application::Render()
