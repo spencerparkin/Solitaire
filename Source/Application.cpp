@@ -18,6 +18,7 @@ Application::Application()
 	this->generalCount = 0L;
 	this->cardConstantsBufferPtr = nullptr;
 	this->worldToProj = XMMatrixIdentity();
+	this->mouseCaptured = false;
 
 	::ZeroMemory(&this->cardVertexBufferView, sizeof(this->cardVertexBufferView));
 	::ZeroMemory(&this->viewport, sizeof(this->viewport));
@@ -1091,6 +1092,11 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 			app->OnRightMouseButtonUp(wParam, lParam);
 			break;
 		}
+		case WM_CAPTURECHANGED:
+		{
+			app->OnMouseCaptureChanged(wParam, lParam);
+			break;
+		}
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);
@@ -1105,8 +1111,11 @@ void Application::OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam)
 {
 	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
 
-	if (this->cardGame.get())
-		this->cardGame->OnMouseGrabAt(worldMousePoint);
+	if (this->cardGame.get() && this->cardGame->OnMouseGrabAt(worldMousePoint))
+	{
+		SetCapture(this->windowHandle);
+		this->mouseCaptured = true;
+	}
 }
 
 void Application::OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam)
@@ -1115,6 +1124,23 @@ void Application::OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam)
 
 	if (this->cardGame.get())
 		this->cardGame->OnMouseReleaseAt(worldMousePoint);
+
+	if (this->mouseCaptured)
+	{
+		ReleaseCapture();
+		this->mouseCaptured = false;
+	}
+}
+
+void Application::OnMouseCaptureChanged(WPARAM wParam, LPARAM lParam)
+{
+	if (this->mouseCaptured && GetCapture() != this->windowHandle)
+	{
+		if (this->cardGame.get())
+			this->cardGame->OnMouseReleaseAt(this->worldExtents.max);
+
+		this->mouseCaptured = false;
+	}
 }
 
 void Application::OnMouseMove(WPARAM wParam, LPARAM lParam)

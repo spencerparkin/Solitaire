@@ -51,6 +51,7 @@ private:
 	void OnMouseMove(WPARAM wParam, LPARAM lParam);
 	void OnKeyUp(WPARAM wParam, LPARAM lParam);
 	void OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam);
+	void OnMouseCaptureChanged(WPARAM wParam, LPARAM lParam);
 
 	struct SwapFrame
 	{
@@ -113,4 +114,5 @@ private:
 	Clock clock;
 	std::list<double> tickTimeList;
 	UINT64 tickCount;
+	bool mouseCaptured;
 };

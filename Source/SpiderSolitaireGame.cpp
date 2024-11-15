@@ -76,7 +76,10 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 
 	// Note that we continuously check here for cards that can
 	// exit just so we don't have to think about checking for it
-	// everywhere that it can happen during game-play.
+	// everywhere that it can happen during game-play.  Hmmmm.
+	// A thought comes to mind.  The player may create a sequence
+	// that can exit, but maybe thay're not ready for it to exit?
+	// Would that ever be necessary or desired?
 	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
 	{
 		if (cardPile->cardArray.size() < Card::Value::NUM_VALUES)
@@ -115,7 +118,7 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 	}
 }
 
-/*virtual*/ void SpiderSolitaireGame::OnMouseGrabAt(DirectX::XMVECTOR worldPoint)
+/*virtual*/ bool SpiderSolitaireGame::OnMouseGrabAt(DirectX::XMVECTOR worldPoint)
 {
 	assert(this->movingCardPile.get() == nullptr);
 
@@ -152,10 +155,14 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 					this->movingCardPile->position = this->movingCardPile->cardArray[0]->position;
 					this->grabDelta = this->movingCardPile->position - worldPoint;
 					this->originCardPile = foundCardPile;
+
+					return true;
 				}
 			}
 		}
 	}
+
+	return false;
 }
 
 /*virtual*/ void SpiderSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)

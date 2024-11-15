@@ -18,7 +18,7 @@ public:
 	virtual void NewGame() override;
 	virtual void Clear() override;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
-	virtual void OnMouseGrabAt(DirectX::XMVECTOR worldPoint) override;
+	virtual bool OnMouseGrabAt(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnCardsNeeded() override;

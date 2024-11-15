@@ -17,7 +17,7 @@ public:
 	virtual void NewGame() = 0;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const;
 	virtual void Clear();
-	virtual void OnMouseGrabAt(DirectX::XMVECTOR worldPoint) = 0;
+	virtual bool OnMouseGrabAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnCardsNeeded() = 0;
