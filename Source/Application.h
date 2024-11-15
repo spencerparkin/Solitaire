@@ -11,12 +11,14 @@
 #include <unordered_map>
 #include <DDSTextureLoader.h>
 #include <DirectXMath.h>
+#include "Clock.h"
 #include "SolitaireGame.h"
 #include "Box.h"
 
 using Microsoft::WRL::ComPtr;
 
 #define WINDOW_CLASS_NAME		"SolitaireWindow"
+#define TICKS_PER_FPS_PROFILE	32
 
 class Application
 {
@@ -106,4 +108,7 @@ private:
 	Box worldExtents;
 	Box adjustedWorldExtents;
 	Box cardSize;
+	Clock clock;
+	std::list<double> tickTimeList;
+	UINT64 tickCount;
 };

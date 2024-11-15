@@ -11,11 +11,14 @@ using namespace DirectX;
 
 Application::Application()
 {
+	this->tickCount = 0;
 	this->maxCardDrawCallsPerSwapFrame = 128;
 	this->windowHandle = NULL;
 	this->generalFenceEvent = NULL;
 	this->generalCount = 0L;
 	this->cardConstantsBufferPtr = nullptr;
+	this->worldToProj = XMMatrixIdentity();
+
 	::ZeroMemory(&this->cardVertexBufferView, sizeof(this->cardVertexBufferView));
 	::ZeroMemory(&this->viewport, sizeof(this->viewport));
 	::ZeroMemory(&this->scissorRect, sizeof(this->scissorRect));
@@ -417,14 +420,11 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	this->pipelineState->SetName(L"Pipeline State");
 
-	// TODO: My rendering might be really slow, because I'm constantly writing to a region of memory
-	//       that the GPU is also trying to read from at the same time.  Maybe create two constants
-	//       buffers, one for each swap-frame?  Would this help?  You should profile before-hand so
-	//       that you can see if the change makes any difference.
-
 	// Reserve some space in slow GPU memory for constants buffers.  Whenever the GPU
 	// wants to read the memory, it has to be marsheled over (whatever the hell that means).
 	// How else am I supposed to do this?  Is there a better way?
+	// Note that the CPU will never write into a part of this region of memory that the
+	// GPU is reading from, but I still wonder if this could be a point of slowness.
 	UINT constantsBufferSize = sizeof(CardConstantsBuffer) * this->maxCardDrawCallsPerSwapFrame * this->swapFrameArray.size();
 	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 	auto constantsBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantsBufferSize);
@@ -507,6 +507,8 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 
 	this->cardGame = std::make_shared<SpiderSolitaireGame>(this->worldExtents, this->cardSize);
 	this->cardGame->NewGame();
+
+	this->clock.Reset();
 
 	ShowWindow(this->windowHandle, cmdShow);
 
@@ -858,6 +860,24 @@ int Application::Run()
 
 void Application::Tick()
 {
+	this->tickCount++;
+
+	double deltaTimeSeconds = this->clock.GetCurrentTimeSeconds(true);
+
+	this->tickTimeList.push_back(deltaTimeSeconds);
+	while (this->tickTimeList.size() > TICKS_PER_FPS_PROFILE)
+		this->tickTimeList.pop_front();
+
+	if (this->tickCount % TICKS_PER_FPS_PROFILE == 0)
+	{
+		double averageSecondsPerTick = 0.0;
+		for (double secondsPerTick : this->tickTimeList)
+			averageSecondsPerTick += secondsPerTick;
+		averageSecondsPerTick /= double(this->tickTimeList.size());
+		double averageFPS = 1.0 / averageSecondsPerTick;
+		OutputDebugStringA(std::format("Average FPS: {}\n", averageFPS).c_str());
+	}
+
 	//...
 }
 
