@@ -878,7 +878,8 @@ void Application::Tick()
 		OutputDebugStringA(std::format("Average FPS: {}\n", averageFPS).c_str());
 	}
 
-	//...
+	if (this->cardGame)
+		this->cardGame->Tick(deltaTimeSeconds);
 }
 
 void Application::Render()
@@ -1076,6 +1077,11 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 			app->OnMouseMove(wParam, lParam);
 			break;
 		}
+		case WM_RBUTTONUP:
+		{
+			app->OnRightMouseButtonUp(wParam, lParam);
+			break;
+		}
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);
@@ -1108,6 +1114,18 @@ void Application::OnMouseMove(WPARAM wParam, LPARAM lParam)
 
 	if (this->cardGame.get())
 		this->cardGame->OnMouseMove(worldMousePoint);
+}
+
+void Application::OnKeyUp(WPARAM wParam, LPARAM lParam)
+{
+	if (this->cardGame.get())
+		this->cardGame->OnKeyUp(wParam);
+}
+
+void Application::OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam)
+{
+	if (this->cardGame.get())
+		this->cardGame->OnCardsNeeded();
 }
 
 XMVECTOR Application::MouseLocationToWorldLocation(LPARAM lParam)

@@ -49,6 +49,8 @@ private:
 	void OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam);
 	void OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam);
 	void OnMouseMove(WPARAM wParam, LPARAM lParam);
+	void OnKeyUp(WPARAM wParam, LPARAM lParam);
+	void OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam);
 
 	struct SwapFrame
 	{

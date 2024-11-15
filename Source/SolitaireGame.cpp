@@ -90,6 +90,13 @@ bool SolitaireGame::FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_pt
 	return false;
 }
 
+/*virtual*/ void SolitaireGame::Tick(double deltaTimeSeconds)
+{
+	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
+		for (std::shared_ptr<Card>& card : cardPile->cardArray)
+			card->Tick(deltaTimeSeconds);
+}
+
 //----------------------------------- SolitaireGame::Card -----------------------------------
 
 SolitaireGame::Card::Card()
@@ -98,10 +105,32 @@ SolitaireGame::Card::Card()
 	this->suite = Suite::SPADES;
 	this->orientation = Orientation::FACE_UP;
 	this->position = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+	this->targetPosition = this->position;
+	this->animationRate = 0.0;
 }
 
 /*virtual*/ SolitaireGame::Card::~Card()
 {
+}
+
+void SolitaireGame::Card::Tick(double deltaTimeSeconds)
+{
+	if (this->animationRate > 0.0f)
+	{
+		XMVECTOR delta = this->targetPosition - this->position;
+		double currentDistance = XMVectorGetX(XMVector3Length(delta));
+		double travelDistance = this->animationRate * deltaTimeSeconds;
+		if (currentDistance <= travelDistance)
+		{
+			this->position = this->targetPosition;
+			this->animationRate = 0.0;
+		}
+		else
+		{
+			delta = XMVectorScale(delta, 1.0 / currentDistance) * travelDistance;
+			this->position += delta;
+		}
+	}
 }
 
 bool SolitaireGame::Card::ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const

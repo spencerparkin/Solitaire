@@ -13,6 +13,8 @@ public:
 	virtual void OnMouseGrabAt(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) override;
+	virtual void OnCardsNeeded() override;
+	virtual void OnKeyUp(uint32_t keyCode) override;
 
 private:
 	std::vector<std::shared_ptr<Card>> cardArray;

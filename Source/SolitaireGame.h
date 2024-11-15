@@ -20,6 +20,9 @@ public:
 	virtual void OnMouseGrabAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) = 0;
+	virtual void OnCardsNeeded() = 0;
+	virtual void OnKeyUp(uint32_t keyCode) = 0;
+	virtual void Tick(double deltaTimeSeconds);
 
 	class Card
 	{
@@ -29,6 +32,7 @@ public:
 
 		std::string GetRenderKey() const;
 		bool ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const;
+		void Tick(double deltaTimeSeconds);
 
 		enum Value
 		{
@@ -67,6 +71,8 @@ public:
 		Suite suite;
 		Orientation orientation;
 		DirectX::XMVECTOR position;
+		DirectX::XMVECTOR targetPosition;
+		double animationRate;
 	};
 
 	class CardPile
