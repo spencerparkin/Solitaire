@@ -140,8 +140,13 @@ protected:
 	static void SuffleCards(std::vector<std::shared_ptr<Card>>& cardArray);
 	static int RandomInteger(int min, int max);
 
+	bool FindCardInPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile> givenCardPile, int& foundCardOffset);
 	bool FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile, int& foundCardOffset);
 	bool FindEmptyPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile);
+
+	void StartCardMoving(std::shared_ptr<CardPile> cardPile, int grabOffset, DirectX::XMVECTOR grabPoint);
+	void FinishCardMoving(std::shared_ptr<CardPile> targetPile, bool commitMove);
+	void ManageCardMoving(DirectX::XMVECTOR grabPoint);
 
 	std::vector<std::shared_ptr<CardPile>> cardPileArray;
 	std::shared_ptr<CardPile> movingCardPile;

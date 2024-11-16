@@ -76,25 +76,63 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 
 /*virtual*/ void KlondikeSolitaireGame::GenerateRenderList(std::vector<const Card*>& cardRenderList) const
 {
-	SolitaireGame::GenerateRenderList(cardRenderList);
-
 	for (const std::shared_ptr<CardPile>& pile : this->suitPileArray)
 		pile->GenerateRenderList(cardRenderList);
 
 	this->drawPile->GenerateRenderList(cardRenderList);
+
+	SolitaireGame::GenerateRenderList(cardRenderList);
 }
 
 /*virtual*/ bool KlondikeSolitaireGame::OnMouseGrabAt(DirectX::XMVECTOR worldPoint)
 {
+	assert(this->movingCardPile.get() == nullptr);
+
+	int foundCardOffset = -1;
+	std::shared_ptr<CardPile> foundCardPile;
+	if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
+	{
+		Card* card = foundCardPile->cardArray[foundCardOffset].get();
+		if (card->orientation == Card::Orientation::FACE_UP)
+		{
+			this->StartCardMoving(foundCardPile, foundCardOffset, worldPoint);
+		}
+	}
+	else if(this->FindCardInPile(worldPoint, this->drawPile, foundCardOffset))
+	{
+		if (foundCardOffset == int(this->drawPile->cardArray.size()) - 1)
+		{
+			this->StartCardMoving(this->drawPile, foundCardOffset, worldPoint);
+		}
+	}
+
 	return false;
 }
 
 /*virtual*/ void KlondikeSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
 {
+	if (this->movingCardPile.get())
+	{
+		bool moveCards = false;
+		std::shared_ptr<CardPile> foundCardPile;
+		int foundCardOffset = -1;
+		if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
+		{
+			const Card* card = foundCardPile->cardArray[foundCardOffset].get();
+			if (card->GetColor() != this->movingCardPile->cardArray[0]->GetColor() &&
+				int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
+			{
+				moveCards = true;
+			}
+		}
+
+		this->FinishCardMoving(foundCardPile, moveCards);
+	}
 }
 
 /*virtual*/ void KlondikeSolitaireGame::OnMouseMove(DirectX::XMVECTOR worldPoint)
 {
+	this->ManageCardMoving(worldPoint);
 }
 
 /*virtual*/ void KlondikeSolitaireGame::OnCardsNeeded()

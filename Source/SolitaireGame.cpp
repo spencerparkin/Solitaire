@@ -71,20 +71,30 @@ SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 	this->movingCardPile.reset();
 }
 
+bool SolitaireGame::FindCardInPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile> givenCardPile, int& foundCardOffset)
+{
+	// Search from top to bottom to account for Z-order.
+	for (int i = int(givenCardPile->cardArray.size()) - 1; i >= 0; i--)
+	{
+		std::shared_ptr<Card>& card = givenCardPile->cardArray[i];
+		if (card->ContainsPoint(worldPoint, this->cardSize))
+		{
+			foundCardOffset = i;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool SolitaireGame::FindCardAndPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<CardPile>& foundCardPile, int& foundCardOffset)
 {
 	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
 	{
-		// Search from top to bottom to account for Z-order.
-		for (int i = int(cardPile->cardArray.size()) - 1; i >= 0; i--)
+		if (this->FindCardInPile(worldPoint, cardPile, foundCardOffset))
 		{
-			std::shared_ptr<Card>& card = cardPile->cardArray[i];
-			if (card->ContainsPoint(worldPoint, this->cardSize))
-			{
-				foundCardPile = cardPile;
-				foundCardOffset = i;
-				return true;
-			}
+			foundCardPile = cardPile;
+			return true;
 		}
 	}
 
@@ -106,6 +116,53 @@ bool SolitaireGame::FindEmptyPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<
 	}
 
 	return false;
+}
+
+void SolitaireGame::StartCardMoving(std::shared_ptr<CardPile> cardPile, int grabOffset, XMVECTOR grabPoint)
+{
+	this->movingCardPile = std::make_shared<CascadingCardPile>();
+
+	for (int i = grabOffset; i < cardPile->cardArray.size(); i++)
+		this->movingCardPile->cardArray.push_back(cardPile->cardArray[i]);
+
+	for (int i = 0; i < this->movingCardPile->cardArray.size(); i++)
+		cardPile->cardArray.pop_back();
+
+	this->movingCardPile->position = this->movingCardPile->cardArray[0]->position;
+	this->grabDelta = this->movingCardPile->position - grabPoint;
+	this->originCardPile = cardPile;
+}
+
+void SolitaireGame::FinishCardMoving(std::shared_ptr<CardPile> targetPile, bool commitMove)
+{
+	if (commitMove)
+	{
+		for (auto& movingCard : this->movingCardPile->cardArray)
+			targetPile->cardArray.push_back(movingCard);
+
+		targetPile->LayoutCards(this->cardSize);
+
+		if (this->originCardPile->cardArray.size() > 0)
+			this->originCardPile->cardArray[this->originCardPile->cardArray.size() - 1]->orientation = Card::Orientation::FACE_UP;
+	}
+	else
+	{
+		for (auto& movingCard : this->movingCardPile->cardArray)
+			this->originCardPile->cardArray.push_back(movingCard);
+
+		this->originCardPile->LayoutCards(this->cardSize);
+	}
+
+	this->movingCardPile = nullptr;
+}
+
+void SolitaireGame::ManageCardMoving(XMVECTOR grabPoint)
+{
+	if (this->movingCardPile.get())
+	{
+		this->movingCardPile->position = grabPoint + this->grabDelta;
+		this->movingCardPile->LayoutCards(this->cardSize);
+	}
 }
 
 /*virtual*/ void SolitaireGame::Tick(double deltaTimeSeconds)
