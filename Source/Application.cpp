@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "KlondikeSolitaireGame.h"
 #include "SpiderSolitaireGame.h"
 #include "Utils.h"
 #include <string>
@@ -501,14 +502,9 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	if (!this->LoadCardVertexBuffer())
 		return false;
 
-//#if defined _DEBUG
-//	std::srand(0);	// In debug, always seed with zero for consistent bug reproduction.
-//#else
 	std::srand(std::time(nullptr));
-//#endif
 
-	auto difficultyLevel = SpiderSolitaireGame::DifficultyLevel::LOW;
-	this->cardGame = std::make_shared<SpiderSolitaireGame>(this->worldExtents, this->cardSize, difficultyLevel);
+	this->cardGame = std::make_shared<KlondikeSolitaireGame>(this->worldExtents, this->cardSize);
 	this->cardGame->NewGame();
 
 	this->clock.Reset();
@@ -1164,6 +1160,12 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 				}
 				case ID_KLONDIKE:
 				{
+					if (!dynamic_cast<KlondikeSolitaireGame*>(app->cardGame.get()))
+					{
+						app->cardGame = std::make_shared<KlondikeSolitaireGame>(app->worldExtents, app->cardSize);
+						app->cardGame->NewGame();
+					}
+
 					break;
 				}
 			}
@@ -1193,6 +1195,10 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 						}
 						case ID_KLONDIKE:
 						{
+							if (dynamic_cast<KlondikeSolitaireGame*>(app->cardGame.get()))
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_CHECKED, ID_KLONDIKE, "Klondike");
+							else
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_UNCHECKED, ID_KLONDIKE, "Klondike");
 							break;
 						}
 					}

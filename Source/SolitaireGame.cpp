@@ -27,7 +27,7 @@ SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 
 /*static*/ void SolitaireGame::GenerateDeck(std::vector<std::shared_ptr<Card>>& cardArray)
 {
-	for (int i = 0; i < (int)Card::NUM_SUITES; i++)
+	for (int i = 0; i < (int)Card::NUM_SUITS; i++)
 	{
 		for (int j = 0; j < (int)Card::NUM_VALUES; j++)
 		{
@@ -176,6 +176,9 @@ SolitaireGame::Card::Color SolitaireGame::Card::GetColor() const
 
 std::string SolitaireGame::Card::GetRenderKey() const
 {
+	if (this->value == Value::NUM_VALUES)
+		return "empty_card";
+
 	if (this->orientation == Orientation::FACE_DOWN)
 		return "card_back";
 
@@ -224,6 +227,8 @@ std::string SolitaireGame::Card::GetRenderKey() const
 SolitaireGame::CardPile::CardPile()
 {
 	this->position = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
+	this->emptyCard = std::make_shared<Card>();
+	this->emptyCard->value = Card::Value::NUM_VALUES;
 }
 
 /*virtual*/ SolitaireGame::CardPile::~CardPile()
@@ -297,6 +302,13 @@ bool SolitaireGame::CardPile::CardsSameSuit(int start, int finish) const
 SolitaireGame::CascadingCardPile::CascadingCardPile()
 {
 	this->cascadeDirection = CascadeDirection::DOWN;
+	this->cascadeNumber = -1;
+}
+
+SolitaireGame::CascadingCardPile::CascadingCardPile(CascadeDirection cascadeDirection, int cascadeNumber)
+{
+	this->cascadeDirection = cascadeDirection;
+	this->cascadeNumber = cascadeNumber;
 }
 
 /*virtual*/ SolitaireGame::CascadingCardPile::~CascadingCardPile()
@@ -313,7 +325,7 @@ SolitaireGame::CascadingCardPile::CascadingCardPile()
 	}
 	else
 	{
-		// TODO: Should add an "empty" card to the render list.
+		cardRenderList.push_back(this->emptyCard.get());
 	}
 }
 
@@ -332,11 +344,15 @@ SolitaireGame::CascadingCardPile::CascadingCardPile()
 		break;
 	}
 
-	for (std::shared_ptr<Card>& card : this->cardArray)
+	for (int i = 0; i < (int)this->cardArray.size(); i++)
 	{
+		std::shared_ptr<Card>& card = this->cardArray[i];
 		card->position = location;
-		location += delta;
+		if (this->cascadeNumber == -1 || (int(this->cardArray.size() - i) <= this->cascadeNumber))
+			location += delta;
 	}
+
+	this->emptyCard->position = this->position;
 }
 
 //----------------------------------- SolitaireGame::SingularCardPile -----------------------------------
@@ -358,12 +374,14 @@ SolitaireGame::SingularCardPile::SingularCardPile()
 	}
 	else
 	{
-		// TODO: Should add an "empty" card to the render list.
+		cardRenderList.push_back(this->emptyCard.get());
 	}
 }
 
 /*virtual*/ void SolitaireGame::SingularCardPile::LayoutCards(const Box& cardSize)
 {
+	this->emptyCard->position = this->position;
+
 	for (std::shared_ptr<Card>& card : this->cardArray)
 		card->position = this->position;
 }

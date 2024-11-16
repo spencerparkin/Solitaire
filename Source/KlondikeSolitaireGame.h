@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SolitaireGame.h"
+#include <list>
 
 class KlondikeSolitaireGame : public SolitaireGame
 {
@@ -20,7 +21,7 @@ public:
 	virtual bool GameWon() const override;
 
 private:
-	std::vector<std::shared_ptr<Card>> cardArray;
-	std::shared_ptr<CardPile> choicePile;
+	std::list<std::shared_ptr<Card>> cardList;
+	std::shared_ptr<CardPile> drawPile;
 	std::vector<std::shared_ptr<CardPile>> suitPileArray;
 };

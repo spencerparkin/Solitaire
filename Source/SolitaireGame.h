@@ -59,7 +59,7 @@ public:
 			CLUBS,
 			DIAMONDS,
 			HEARTS,
-			NUM_SUITES
+			NUM_SUITS
 		};
 
 		enum Color
@@ -101,24 +101,27 @@ public:
 
 		std::vector<std::shared_ptr<Card>> cardArray;
 		DirectX::XMVECTOR position;
+		std::shared_ptr<Card> emptyCard;
 	};
 
 	class CascadingCardPile : public CardPile
 	{
 	public:
-		CascadingCardPile();
-		virtual ~CascadingCardPile();
-
-		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
-		virtual void LayoutCards(const Box& cardSize) override;
-
 		enum CascadeDirection
 		{
 			DOWN,
 			RIGHT
 		};
 
+		CascadingCardPile();
+		CascadingCardPile(CascadeDirection cascadeDirection, int cascadeNumber);
+		virtual ~CascadingCardPile();
+
+		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
+		virtual void LayoutCards(const Box& cardSize) override;
+
 		CascadeDirection cascadeDirection;
+		int cascadeNumber;
 	};
 
 	class SingularCardPile : public CardPile
