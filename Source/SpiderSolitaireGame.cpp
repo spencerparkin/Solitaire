@@ -5,7 +5,6 @@ using namespace DirectX;
 SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& cardSize, DifficultyLevel difficultyLevel) : SolitaireGame(worldExtents, cardSize)
 {
 	this->difficultyLevel = DifficultyLevel::LOW;
-	this->grabDelta = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 /*virtual*/ SpiderSolitaireGame::~SpiderSolitaireGame()

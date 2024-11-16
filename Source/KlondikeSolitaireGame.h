@@ -2,18 +2,11 @@
 
 #include "SolitaireGame.h"
 
-class SpiderSolitaireGame : public SolitaireGame
+class KlondikeSolitaireGame : public SolitaireGame
 {
 public:
-	enum DifficultyLevel
-	{
-		LOW,
-		MEDIUM,
-		HARD
-	};
-
-	SpiderSolitaireGame(const Box& worldExtents, const Box& cardSize, DifficultyLevel difficultyLevel);
-	virtual ~SpiderSolitaireGame();
+	KlondikeSolitaireGame(const Box& worldExtents, const Box& cardSize);
+	virtual ~KlondikeSolitaireGame();
 
 	virtual void NewGame() override;
 	virtual void Clear() override;
@@ -28,6 +21,6 @@ public:
 
 private:
 	std::vector<std::shared_ptr<Card>> cardArray;
-	std::vector<std::shared_ptr<Card>> exitingCardArray;
-	DifficultyLevel difficultyLevel;
+	std::shared_ptr<CardPile> choicePile;
+	std::vector<std::shared_ptr<CardPile>> suitePileArray;
 };

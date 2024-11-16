@@ -19,6 +19,8 @@ set(SOLITAIRE_SOURCES
     Source/SolitaireGame.h
     Source/SpiderSolitaireGame.cpp
     Source/SpiderSolitaireGame.h
+    Source/KlondikeSolitaireGame.cpp
+    Source/KlondikeSolitaireGame.h
     Source/Box.cpp
     Source/Box.h
     Source/Clock.cpp

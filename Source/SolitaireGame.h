@@ -144,4 +144,6 @@ protected:
 	std::shared_ptr<CardPile> movingCardPile;
 	Box cardSize;
 	Box worldExtents;
+	DirectX::XMVECTOR grabDelta;
+	std::shared_ptr<CardPile> originCardPile;
 };

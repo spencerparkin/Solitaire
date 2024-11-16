@@ -9,6 +9,7 @@ SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 {
 	this->worldExtents = worldExtents;
 	this->cardSize = cardSize;
+	this->grabDelta = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 /*virtual*/ SolitaireGame::~SolitaireGame()
