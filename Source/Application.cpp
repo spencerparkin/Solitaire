@@ -886,7 +886,6 @@ void Application::Tick()
 	{
 		if (this->cardGame->GameWon())
 		{
-			// TODO: This doesn't work and causes some recursive problems.  Where should the application correctly tick and render?
 			MessageBoxA(this->windowHandle, "You won!", "Yay!", MB_ICONINFORMATION | MB_OK);
 			this->cardGame->NewGame();
 		}
