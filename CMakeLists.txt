@@ -17,10 +17,12 @@ set(SOLITAIRE_SOURCES
     Source/Application.h
     Source/SolitaireGame.cpp
     Source/SolitaireGame.h
-    Source/SpiderSolitaireGame.cpp
-    Source/SpiderSolitaireGame.h
-    Source/KlondikeSolitaireGame.cpp
-    Source/KlondikeSolitaireGame.h
+    Source/SolitaireGames/SpiderSolitaireGame.cpp
+    Source/SolitaireGames/SpiderSolitaireGame.h
+    Source/SolitaireGames/KlondikeSolitaireGame.cpp
+    Source/SolitaireGames/KlondikeSolitaireGame.h
+    Source/SolitaireGames/FreeCellSolitaireGame.cpp
+    Source/SolitaireGames/FreeCellSolitaireGame.h
     Source/Box.cpp
     Source/Box.h
     Source/Clock.cpp

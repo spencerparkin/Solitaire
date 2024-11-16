@@ -1,6 +1,7 @@
 #include "Application.h"
-#include "KlondikeSolitaireGame.h"
-#include "SpiderSolitaireGame.h"
+#include "SolitaireGames/KlondikeSolitaireGame.h"
+#include "SolitaireGames/SpiderSolitaireGame.h"
+#include "SolitaireGames/FreeCellSolitaireGame.h"
 #include "Utils.h"
 #include <string>
 #include <format>
@@ -1072,8 +1073,9 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 			AppendMenu(gameMenu, MF_STRING, ID_EXIT_PROGRAM, TEXT("Exit"));
 
 			HMENU optionsMenu = CreateMenu();
-			AppendMenu(optionsMenu, MF_STRING, ID_SPIDER, TEXT("Spider"));
 			AppendMenu(optionsMenu, MF_STRING, ID_KLONDIKE, TEXT("Klondike"));
+			AppendMenu(optionsMenu, MF_STRING, ID_SPIDER, TEXT("Spider"));
+			AppendMenu(optionsMenu, MF_STRING, ID_FREECELL, TEXT("Free Cell"));
 
 			HMENU helpMenu = CreateMenu();
 			AppendMenu(helpMenu, MF_STRING, ID_ABOUT, TEXT("About"));
@@ -1172,6 +1174,16 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 
 					break;
 				}
+				case ID_FREECELL:
+				{
+					if (!dynamic_cast<FreeCellSolitaireGame*>(app->cardGame.get()))
+					{
+						app->cardGame = std::make_shared<FreeCellSolitaireGame>(app->worldExtents, app->cardSize);
+						app->cardGame->NewGame();
+					}
+
+					break;
+				}
 			}
 
 			return 0;
@@ -1204,6 +1216,13 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 							else
 								ModifyMenu(menu, i, MF_BYPOSITION | MF_UNCHECKED, ID_KLONDIKE, "Klondike");
 							break;
+						}
+						case ID_FREECELL:
+						{
+							if (dynamic_cast<FreeCellSolitaireGame*>(app->cardGame.get()))
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_CHECKED, ID_FREECELL, "Free Cell");
+							else
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_UNCHECKED, ID_FREECELL, "Free Cell");
 						}
 					}
 				}
