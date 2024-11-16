@@ -17,8 +17,9 @@
 
 using Microsoft::WRL::ComPtr;
 
-#define WINDOW_CLASS_NAME		"SolitaireWindow"
-#define TICKS_PER_FPS_PROFILE	32
+#define WINDOW_CLASS_NAME				"SolitaireWindow"
+#define TICKS_PER_FPS_PROFILE			32
+#define MIN_TIME_BETWEEN_CARDS_NEEDED	0.5
 
 enum
 {
@@ -124,4 +125,5 @@ private:
 	std::list<double> tickTimeList;
 	UINT64 tickCount;
 	bool mouseCaptured;
+	Clock cardsNeededClock;
 };

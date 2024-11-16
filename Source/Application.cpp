@@ -34,6 +34,8 @@ Application::Application()
 
 	this->cardSize.min = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 	this->cardSize.max = XMVectorSet(cardWidth, cardWidth / cardAspectRatio, 0.0f, 1.0f);
+
+	this->cardsNeededClock.Reset();
 }
 
 /*virtual*/ Application::~Application()
@@ -1265,7 +1267,18 @@ void Application::OnKeyUp(WPARAM wParam, LPARAM lParam)
 void Application::OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam)
 {
 	if (this->cardGame.get())
-		this->cardGame->OnCardsNeeded();
+	{
+		// A clock is used here to prevent getting more cards faster
+		// than the user really wants them.  For example, my mouse button
+		// has a problem where I'll click it once, but I'll get multiple
+		// events firing here, because there the mouse hardware is malfunctioning.
+		// This also prevents problems with an accidental double-clicking of the mouse button.
+		if (this->cardsNeededClock.GetCurrentTimeSeconds() > MIN_TIME_BETWEEN_CARDS_NEEDED)
+		{
+			this->cardGame->OnCardsNeeded();
+			this->cardsNeededClock.Reset();
+		}
+	}
 }
 
 XMVECTOR Application::MouseLocationToWorldLocation(LPARAM lParam)
