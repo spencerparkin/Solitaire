@@ -105,6 +105,17 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 			this->StartCardMoving(this->drawPile, foundCardOffset, worldPoint);
 		}
 	}
+	else
+	{
+		for (int i = 0; i < int(Card::Suit::NUM_SUITS); i++)
+		{
+			std::shared_ptr<CardPile>& suitPile = this->suitPileArray[i];
+			if (suitPile->ContainsPoint(worldPoint, this->cardSize) && suitPile->cardArray.size() > 0)
+			{
+				this->StartCardMoving(suitPile, int(suitPile->cardArray.size()) - 1, worldPoint);
+			}
+		}
+	}
 
 	return false;
 }
