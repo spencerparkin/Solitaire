@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "SpiderSolitaireGame.h"
+#include "Utils.h"
 #include <string>
 #include <format>
 #include <locale>
@@ -1055,6 +1056,9 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 {
 	auto app = reinterpret_cast<Application*>(GetWindowLongPtr(windowHandle, GWLP_USERDATA));
 
+	static int windProcCount = 0;
+	RecursionCounter recursionCounter(&windProcCount);
+
 	switch (message)
 	{
 		case WM_CREATE:
@@ -1085,9 +1089,11 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 		}
 		case WM_PAINT:
 		{
+			if (recursionCounter.GetCount() >= 2)
+				return DefWindowProc(windowHandle, message, wParam, lParam);
+
 			if (app)
 			{
-				// TODO: I suspect this isn't the right place to do this.  Note that a message box initiated here causes big problems.
 				app->Tick();
 				app->Render();
 			}
@@ -1140,8 +1146,9 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 				}
 				case ID_ABOUT:
 				{
-					// TODO: Why is this message box behind the main window when it comes up?
-					MessageBoxA(windowHandle, "This is a basic Solitaire Game written by Spencer T. Parkin for the purpose of learning DirectX 12.", "About", MB_ICONINFORMATION | MB_OK);
+					MessageBoxA(windowHandle,
+						"This is a basic Solitaire Game written for the purpose of learning DirectX 12.\n\n"
+						"Copyright (c) 2024 Spencer T. Parkin", "About", MB_ICONINFORMATION | MB_OK);
 					break;
 				}
 				case ID_SPIDER:

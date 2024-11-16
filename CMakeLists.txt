@@ -25,6 +25,8 @@ set(SOLITAIRE_SOURCES
     Source/Box.h
     Source/Clock.cpp
     Source/Clock.h
+    Source/Utils.cpp
+    Source/Utils.h
 )
 
 add_executable(Solitaire WIN32 ${SOLITAIRE_SOURCES})
