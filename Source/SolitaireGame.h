@@ -53,7 +53,7 @@ public:
 			NUM_VALUES
 		};
 
-		enum Suite
+		enum Suit
 		{
 			SPADES,
 			CLUBS,
@@ -77,7 +77,7 @@ public:
 		Color GetColor() const;
 
 		Value value;
-		Suite suite;
+		Suit suit;
 		Orientation orientation;
 		DirectX::XMVECTOR position;
 		DirectX::XMVECTOR targetPosition;
@@ -95,7 +95,7 @@ public:
 
 		bool CardsInOrder(int start, int finish) const;
 		bool CardsSameColor(int start, int finish) const;
-		bool CardsSameSuite(int start, int finish) const;
+		bool CardsSameSuit(int start, int finish) const;
 		bool IndexValid(int i) const;
 		bool ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const;
 

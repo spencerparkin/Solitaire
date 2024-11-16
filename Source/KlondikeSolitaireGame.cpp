@@ -22,7 +22,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 	SolitaireGame::Clear();
 	this->cardArray.clear();
 	this->choicePile = nullptr;
-	this->suitePileArray.clear();
+	this->suitPileArray.clear();
 }
 
 /*virtual*/ void KlondikeSolitaireGame::GenerateRenderList(std::vector<const Card*>& cardRenderList) const

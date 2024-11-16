@@ -98,7 +98,7 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 		else if (this->difficultyLevel == DifficultyLevel::MEDIUM)
 			exitCards = cardPile->CardsSameColor(start, finish);
 		else if (this->difficultyLevel == DifficultyLevel::HARD)
-			exitCards = cardPile->CardsSameSuite(start, finish);
+			exitCards = cardPile->CardsSameSuit(start, finish);
 
 		if (exitCards)
 		{
@@ -139,7 +139,7 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 				else if (this->difficultyLevel == DifficultyLevel::MEDIUM)
 					canMoveCards = foundCardPile->CardsSameColor(start, finish);
 				else if (this->difficultyLevel == DifficultyLevel::HARD)
-					canMoveCards = foundCardPile->CardsSameSuite(start, finish);
+					canMoveCards = foundCardPile->CardsSameSuit(start, finish);
 
 				if (canMoveCards)
 				{

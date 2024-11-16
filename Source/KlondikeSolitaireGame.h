@@ -22,5 +22,5 @@ public:
 private:
 	std::vector<std::shared_ptr<Card>> cardArray;
 	std::shared_ptr<CardPile> choicePile;
-	std::vector<std::shared_ptr<CardPile>> suitePileArray;
+	std::vector<std::shared_ptr<CardPile>> suitPileArray;
 };

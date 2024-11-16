@@ -32,7 +32,7 @@ SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 		for (int j = 0; j < (int)Card::NUM_VALUES; j++)
 		{
 			auto card = std::make_shared<Card>();
-			card->suite = (Card::Suite)i;
+			card->suit = (Card::Suit)i;
 			card->value = (Card::Value)j;
 			cardArray.push_back(card);
 		}
@@ -120,7 +120,7 @@ bool SolitaireGame::FindEmptyPile(DirectX::XMVECTOR worldPoint, std::shared_ptr<
 SolitaireGame::Card::Card()
 {
 	this->value = Value::ACE;
-	this->suite = Suite::SPADES;
+	this->suit = Suit::SPADES;
 	this->orientation = Orientation::FACE_UP;
 	this->position = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);
 	this->targetPosition = this->position;
@@ -161,13 +161,13 @@ bool SolitaireGame::Card::ContainsPoint(DirectX::XMVECTOR point, const Box& card
 
 SolitaireGame::Card::Color SolitaireGame::Card::GetColor() const
 {
-	switch (this->suite)
+	switch (this->suit)
 	{
-	case Suite::SPADES:
-	case Suite::CLUBS:
+	case Suit::SPADES:
+	case Suit::CLUBS:
 		return Color::BLACK;
-	case Suite::DIAMONDS:
-	case Suite::HEARTS:
+	case Suit::DIAMONDS:
+	case Suit::HEARTS:
 		return Color::RED;
 	}
 
@@ -200,18 +200,18 @@ std::string SolitaireGame::Card::GetRenderKey() const
 	}
 
 	std::string postfix;
-	switch (this->suite)
+	switch (this->suit)
 	{
-	case Suite::SPADES:
+	case Suit::SPADES:
 		postfix = "spades";
 		break;
-	case Suite::CLUBS:
+	case Suit::CLUBS:
 		postfix = "clubs";
 		break;
-	case Suite::DIAMONDS:
+	case Suit::DIAMONDS:
 		postfix = "diamonds";
 		break;
-	case Suite::HEARTS:
+	case Suit::HEARTS:
 		postfix = "hearts";
 		break;
 	}
@@ -278,15 +278,15 @@ bool SolitaireGame::CardPile::CardsSameColor(int start, int finish) const
 	return true;
 }
 
-bool SolitaireGame::CardPile::CardsSameSuite(int start, int finish) const
+bool SolitaireGame::CardPile::CardsSameSuit(int start, int finish) const
 {
 	assert(start <= finish);
 	assert(this->IndexValid(start));
 	assert(this->IndexValid(finish));
 
-	Card::Suite suite = this->cardArray[start]->suite;
+	Card::Suit suit = this->cardArray[start]->suit;
 	for (int i = start + 1; i <= finish; i++)
-		if (this->cardArray[i]->suite != suite)
+		if (this->cardArray[i]->suit != suit)
 			return false;
 
 	return true;
