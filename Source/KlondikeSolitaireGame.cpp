@@ -125,8 +125,34 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 				moveCards = true;
 			}
 		}
+		else if (this->FindEmptyPile(worldPoint, foundCardPile))
+		{
+			if (this->movingCardPile->cardArray[0]->value == Card::Value::KING)
+			{
+				moveCards = true;
+			}
+		}
+		else if(this->movingCardPile->cardArray.size() == 1)
+		{
+			for (int i = 0; i < int(Card::Suit::NUM_SUITS); i++)
+			{
+				std::shared_ptr<CardPile>& suitPile = this->suitPileArray[i];
+				if (suitPile->ContainsPoint(worldPoint, this->cardSize))
+				{
+					if (suitPile->cardArray.size() == 0 && this->movingCardPile->cardArray[0]->value == Card::Value::ACE ||
+						int(suitPile->cardArray[suitPile->cardArray.size() - 1]->value) + 1 == int(this->movingCardPile->cardArray[0]->value))
+					{
+						foundCardPile = suitPile;
+						moveCards = true;
+						break;
+					}
+				}
+			}
+		}
 
 		this->FinishCardMoving(foundCardPile, moveCards);
+
+		this->drawPile->LayoutCards(this->cardSize);
 	}
 }
 
@@ -170,5 +196,9 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 
 /*virtual*/ bool KlondikeSolitaireGame::GameWon() const
 {
-	return false;
+	for (const std::shared_ptr<CardPile>& suitPile : this->suitPileArray)
+		if (suitPile->cardArray.size() < Card::Value::NUM_VALUES)
+			return false;
+
+	return true;
 }
