@@ -854,6 +854,9 @@ int Application::Run()
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
+
+		InvalidateRect(this->windowHandle, NULL, FALSE);
+		UpdateWindow(this->windowHandle);
 	}
 
 	return msg.wParam;
