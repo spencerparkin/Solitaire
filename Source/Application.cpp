@@ -59,7 +59,7 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	}
 
 	RECT windowRect{ 0, 0, width, height };
-	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, TRUE);
 
 	this->windowHandle = CreateWindow(
 		windowClass.lpszClassName,
@@ -884,6 +884,7 @@ void Application::Tick()
 	{
 		if (this->cardGame->GameWon())
 		{
+			// TODO: This doesn't work and causes some recursive problems.  Where should the application correctly tick and render?
 			MessageBoxA(this->windowHandle, "You won!", "Yay!", MB_ICONINFORMATION | MB_OK);
 			this->cardGame->NewGame();
 		}
@@ -1060,12 +1061,33 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 		{
 			auto createStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
 			SetWindowLongPtr(windowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(createStruct->lpCreateParams));
+
+			HMENU gameMenu = CreateMenu();
+			AppendMenu(gameMenu, MF_STRING, ID_NEW_GAME, TEXT("New Game"));
+			AppendMenu(gameMenu, MF_SEPARATOR, 0, NULL);
+			AppendMenu(gameMenu, MF_STRING, ID_EXIT_PROGRAM, TEXT("Exit"));
+
+			HMENU optionsMenu = CreateMenu();
+			AppendMenu(optionsMenu, MF_STRING, ID_SPIDER, TEXT("Spider"));
+			AppendMenu(optionsMenu, MF_STRING, ID_KLONDIKE, TEXT("Klondike"));
+
+			HMENU helpMenu = CreateMenu();
+			AppendMenu(helpMenu, MF_STRING, ID_ABOUT, TEXT("About"));
+
+			HMENU menuBar = CreateMenu();
+			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)gameMenu, TEXT("Game"));
+			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)optionsMenu, TEXT("Options"));
+			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)helpMenu, TEXT("Help"));
+
+			SetMenu(windowHandle, menuBar);
+
 			return 0;
 		}
 		case WM_PAINT:
 		{
 			if (app)
 			{
+				// TODO: I suspect this isn't the right place to do this.  Note that a message box initiated here causes big problems.
 				app->Tick();
 				app->Render();
 			}
@@ -1100,6 +1122,76 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);
+			return 0;
+		}
+		case WM_COMMAND:
+		{
+			switch (LOWORD(wParam))
+			{
+				case ID_EXIT_PROGRAM:
+				{
+					SendMessage(windowHandle, WM_CLOSE, 0, 0);
+					break;
+				}
+				case ID_NEW_GAME:
+				{
+					app->cardGame->NewGame();
+					break;
+				}
+				case ID_ABOUT:
+				{
+					// TODO: Why is this message box behind the main window when it comes up?
+					MessageBoxA(windowHandle, "This is a basic Solitaire Game written by Spencer T. Parkin for the purpose of learning DirectX 12.", "About", MB_ICONINFORMATION | MB_OK);
+					break;
+				}
+				case ID_SPIDER:
+				{
+					if (!dynamic_cast<SpiderSolitaireGame*>(app->cardGame.get()))
+					{
+						auto difficultyLevel = SpiderSolitaireGame::DifficultyLevel::LOW;	// TODO: Ask user for the difficulty level?
+						app->cardGame = std::make_shared<SpiderSolitaireGame>(app->worldExtents, app->cardSize, difficultyLevel);
+						app->cardGame->NewGame();
+					}
+
+					break;
+				}
+				case ID_KLONDIKE:
+				{
+					break;
+				}
+			}
+
+			return 0;
+		}
+		case WM_INITMENUPOPUP:
+		{
+			HMENU menu = (HMENU)wParam;
+			int itemCount = GetMenuItemCount(menu);
+			for (int i = 0; i < itemCount; i++)
+			{
+				MENUITEMINFO menuItemInfo{};
+				menuItemInfo.cbSize = sizeof(MENUITEMINFO);
+				menuItemInfo.fMask = MIIM_ID;
+				if (GetMenuItemInfo(menu, i, TRUE, &menuItemInfo))
+				{
+					switch (menuItemInfo.wID)
+					{
+						case ID_SPIDER:
+						{
+							if (dynamic_cast<SpiderSolitaireGame*>(app->cardGame.get()))
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_CHECKED, ID_SPIDER, "Spider");
+							else
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_UNCHECKED, ID_SPIDER, "Spider");
+							break;
+						}
+						case ID_KLONDIKE:
+						{
+							break;
+						}
+					}
+				}
+			}
+
 			return 0;
 		}
 	}

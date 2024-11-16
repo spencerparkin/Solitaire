@@ -38,7 +38,7 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 		pile->cardArray[pile->cardArray.size() - 1]->orientation = Card::Orientation::FACE_UP;
 		pile->position = XMVectorSet(
 			(float(i) / float(numPiles - 1)) * (this->worldExtents.GetWidth() - this->cardSize.GetWidth()),
-			this->worldExtents.GetHeight() - this->cardSize.GetHeight(),
+			this->worldExtents.GetHeight() - this->cardSize.GetHeight() * 1.2f,
 			0.0f,
 			1.0f);
 		pile->LayoutCards(this->cardSize);

@@ -20,6 +20,15 @@ using Microsoft::WRL::ComPtr;
 #define WINDOW_CLASS_NAME		"SolitaireWindow"
 #define TICKS_PER_FPS_PROFILE	32
 
+enum
+{
+	ID_NEW_GAME = 1000,
+	ID_EXIT_PROGRAM,
+	ID_SPIDER,
+	ID_KLONDIKE,
+	ID_ABOUT
+};
+
 class Application
 {
 public:
