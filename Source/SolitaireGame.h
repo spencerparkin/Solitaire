@@ -6,6 +6,9 @@
 #include <random>
 #include "Box.h"
 
+// TODO: It wouldn't be hard to add undo/redo to any game type.
+//       Just add a virtual clone method and then keep a history
+//       list of game snap-shots.
 class SolitaireGame
 {
 public:
