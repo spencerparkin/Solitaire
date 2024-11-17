@@ -20,6 +20,8 @@ public:
 	virtual bool GameWon() const override;
 
 private:
+	int GetFreeCellCount() const;
+
 	std::vector<std::shared_ptr<CardPile>> suitPileArray;
 	std::vector<std::shared_ptr<CardPile>> freePileArray;
 };

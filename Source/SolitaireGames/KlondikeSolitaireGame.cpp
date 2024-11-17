@@ -96,6 +96,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 		if (card->orientation == Card::Orientation::FACE_UP)
 		{
 			this->StartCardMoving(foundCardPile, foundCardOffset, worldPoint);
+			return true;
 		}
 	}
 	else if(this->FindCardInPile(worldPoint, this->drawPile, foundCardOffset))
@@ -103,6 +104,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 		if (foundCardOffset == int(this->drawPile->cardArray.size()) - 1)
 		{
 			this->StartCardMoving(this->drawPile, foundCardOffset, worldPoint);
+			return true;
 		}
 	}
 	else
@@ -113,6 +115,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 			if (suitPile->ContainsPoint(worldPoint, this->cardSize) && suitPile->cardArray.size() > 0)
 			{
 				this->StartCardMoving(suitPile, int(suitPile->cardArray.size()) - 1, worldPoint);
+				return true;
 			}
 		}
 	}

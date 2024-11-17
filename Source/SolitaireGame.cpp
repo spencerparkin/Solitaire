@@ -354,6 +354,24 @@ bool SolitaireGame::CardPile::CardsSameSuit(int start, int finish) const
 	return true;
 }
 
+bool SolitaireGame::CardPile::CardsAlternateColor(int start, int finish) const
+{
+	assert(start <= finish);
+	assert(this->IndexValid(start));
+	assert(this->IndexValid(finish));
+
+	int color = -1;
+	for (int i = start; i <= finish; i++)
+	{
+		if (color == int(this->cardArray[i]->GetColor()))
+			return false;
+
+		color = int(this->cardArray[i]->GetColor());
+	}
+
+	return true;
+}
+
 //----------------------------------- SolitaireGame::CascadingCardPile -----------------------------------
 
 SolitaireGame::CascadingCardPile::CascadingCardPile()

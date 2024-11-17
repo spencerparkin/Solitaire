@@ -96,6 +96,7 @@ public:
 		bool CardsInOrder(int start, int finish) const;
 		bool CardsSameColor(int start, int finish) const;
 		bool CardsSameSuit(int start, int finish) const;
+		bool CardsAlternateColor(int start, int finish) const;
 		bool IndexValid(int i) const;
 		bool ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const;
 
