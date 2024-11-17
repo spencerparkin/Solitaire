@@ -18,6 +18,7 @@
 using Microsoft::WRL::ComPtr;
 
 #define WINDOW_CLASS_NAME				"SolitaireWindow"
+#define NUM_SWAP_CHAIN_FRAMES			2
 #define TICKS_PER_FPS_PROFILE			32
 #define MIN_TIME_BETWEEN_CARDS_NEEDED	0.5
 
@@ -63,6 +64,8 @@ private:
 	void OnKeyUp(WPARAM wParam, LPARAM lParam);
 	void OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam);
 	void OnMouseCaptureChanged(WPARAM wParam, LPARAM lParam);
+	void OnWindowResized(int width, int height);
+	bool CreateOrAdjustSwapChain(UINT width, UINT height, IDXGIFactory4* factory = nullptr);
 
 	struct SwapFrame
 	{

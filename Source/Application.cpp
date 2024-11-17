@@ -165,95 +165,11 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 		return false;
 	}
 
-	this->viewport.TopLeftX = 0;
-	this->viewport.TopLeftY = 0;
-	this->viewport.Width = width;
-	this->viewport.Height = height;
+	this->CreateOrAdjustSwapChain(width, height, factory.Get());
 
-	this->scissorRect.left = 0;
-	this->scissorRect.right = width;
-	this->scissorRect.top = 0;
-	this->scissorRect.bottom = height;
-
-	// TODO: This matrix would need to be recalculated every time the window was resized.
-	double aspectRatio = double(width) / double(height);
-	this->adjustedWorldExtents = this->worldExtents;
-	this->adjustedWorldExtents.ExpandToMatchAspectRatio(aspectRatio);
-	this->worldToProj = XMMatrixOrthographicOffCenterLH(
-		XMVectorGetX(this->adjustedWorldExtents.min),
-		XMVectorGetX(this->adjustedWorldExtents.max),
-		XMVectorGetY(this->adjustedWorldExtents.min),
-		XMVectorGetY(this->adjustedWorldExtents.max),
-		0.0f,
-		1.0f
-	);
-
-	// TODO: Handle window resizing by recreating the swap-chain as necessary?  Make sure to share code between that process and our setup here.
-	ComPtr<IDXGISwapChain1> swapChain1;
-	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-	swapChainDesc.BufferCount = 2;		// Note that this number could be increased without breaking the program (in theory), but latency would increase.
-	swapChainDesc.Width = width;
-	swapChainDesc.Height = height;
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	swapChainDesc.SampleDesc.Count = 1;
-	result = factory->CreateSwapChainForHwnd(
-		this->commandQueue.Get(),
-		this->windowHandle,
-		&swapChainDesc,
-		nullptr,
-		nullptr,
-		&swapChain1);
-	if (FAILED(result))
-	{
-		std::string error = std::format("Failed to create swap-chain.  Error code: {:x}", result);
-		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
-		return false;
-	}
-
-	result = swapChain1.As(&this->swapChain);
-	if (FAILED(result))
-	{
-		std::string error = std::format("Failed to cast swap-chain.  Error code: {:x}", result);
-		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
-		return false;
-	}
-
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
-	rtvHeapDesc.NumDescriptors = swapChainDesc.BufferCount;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	result = this->device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&this->rtvHeap));
-	if (FAILED(result))
-	{
-		std::string error = std::format("Failed to create RTV descriptor.  Error code: {:x}", result);
-		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
-		return false;
-	}
-
-	UINT rtvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart());
-	this->swapFrameArray.resize(rtvHeapDesc.NumDescriptors);
-	for (int i = 0; i < rtvHeapDesc.NumDescriptors; i++)
+	for (int i = 0; i < int(this->swapFrameArray.size()); i++)
 	{
 		SwapFrame& frame = this->swapFrameArray[i];
-
-		result = this->swapChain->GetBuffer(i, IID_PPV_ARGS(&frame.renderTarget));
-		if (FAILED(result))
-		{
-			std::string error = std::format("Failed to get render target for frame {}.  Error code: {:x}", i, result);
-			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
-			return false;
-		}
-
-		wchar_t renderTargetName[512];
-		wsprintfW(renderTargetName, L"Render Target %d", i);
-		frame.renderTarget->SetName(renderTargetName);
-
-		this->device->CreateRenderTargetView(frame.renderTarget.Get(), nullptr, rtvHandle);
-
-		rtvHandle.Offset(1, rtvDescriptorSize);
 
 		result = this->device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&frame.commandAllocator));
 		if (FAILED(result))
@@ -513,6 +429,135 @@ bool Application::Setup(HINSTANCE instance, int cmdShow, int width, int height)
 	this->clock.Reset();
 
 	ShowWindow(this->windowHandle, cmdShow);
+
+	return true;
+}
+
+bool Application::CreateOrAdjustSwapChain(UINT width, UINT height, IDXGIFactory4* factory /*= nullptr*/)
+{
+	if (width == this->viewport.Width && height == this->viewport.Height)
+		return true;
+
+	HRESULT result = 0;
+
+	this->viewport.TopLeftX = 0;
+	this->viewport.TopLeftY = 0;
+	this->viewport.Width = width;
+	this->viewport.Height = height;
+
+	this->scissorRect.left = 0;
+	this->scissorRect.right = width;
+	this->scissorRect.top = 0;
+	this->scissorRect.bottom = height;
+
+	double aspectRatio = double(width) / double(height);
+	this->adjustedWorldExtents = this->worldExtents;
+	this->adjustedWorldExtents.ExpandToMatchAspectRatio(aspectRatio);
+	this->adjustedWorldExtents.ScaleAboutCenter(1.01f);
+	this->worldToProj = XMMatrixOrthographicOffCenterLH(
+		XMVectorGetX(this->adjustedWorldExtents.min),
+		XMVectorGetX(this->adjustedWorldExtents.max),
+		XMVectorGetY(this->adjustedWorldExtents.min),
+		XMVectorGetY(this->adjustedWorldExtents.max),
+		0.0f,
+		1.0f
+	);
+
+	if (!this->swapChain.Get())
+	{
+		if (!factory)
+		{
+			MessageBox(NULL, "Can't create swap-chain without a factory.", "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+
+		ComPtr<IDXGISwapChain1> swapChain1;
+		DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+		swapChainDesc.BufferCount = NUM_SWAP_CHAIN_FRAMES;
+		swapChainDesc.Width = width;
+		swapChainDesc.Height = height;
+		swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		swapChainDesc.SampleDesc.Count = 1;
+		result = factory->CreateSwapChainForHwnd(
+			this->commandQueue.Get(),
+			this->windowHandle,
+			&swapChainDesc,
+			nullptr,
+			nullptr,
+			&swapChain1);
+		if (FAILED(result))
+		{
+			std::string error = std::format("Failed to create swap-chain.  Error code: {:x}", result);
+			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+
+		// Why all these classes are versioned and we have to cast up, I have no idea.  Seems silly to me.
+		result = swapChain1.As(&this->swapChain);
+		if (FAILED(result))
+		{
+			std::string error = std::format("Failed to cast swap-chain.  Error code: {:x}", result);
+			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+	}
+	else
+	{
+		this->WaitForGPUIdle();
+
+		for (SwapFrame& frame : this->swapFrameArray)
+			frame.renderTarget = nullptr;
+
+		result = this->swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+		if (FAILED(result))
+		{
+			std::string error = std::format("Failed to resize buffers in swap-chain.  Error code: {:x}", result);
+			MessageBox(this->windowHandle, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+	}
+
+	// Is this sufficient to free/destroy the heap?
+	this->rtvHeap = nullptr;
+
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
+	rtvHeapDesc.NumDescriptors = NUM_SWAP_CHAIN_FRAMES;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	result = this->device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&this->rtvHeap));
+	if (FAILED(result))
+	{
+		std::string error = std::format("Failed to create RTV descriptor.  Error code: {:x}", result);
+		MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+		return false;
+	}
+
+	UINT rtvDescriptorSize = this->device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(this->rtvHeap->GetCPUDescriptorHandleForHeapStart());
+	if (this->swapFrameArray.size() != NUM_SWAP_CHAIN_FRAMES)
+		this->swapFrameArray.resize(NUM_SWAP_CHAIN_FRAMES);
+	for (int i = 0; i < int(this->swapFrameArray.size()); i++)
+	{
+		SwapFrame& frame = this->swapFrameArray[i];
+
+		result = this->swapChain->GetBuffer(i, IID_PPV_ARGS(&frame.renderTarget));
+		if (FAILED(result))
+		{
+			std::string error = std::format("Failed to get render target for frame {}.  Error code: {:x}", i, result);
+			MessageBox(NULL, error.c_str(), "Error!", MB_ICONERROR | MB_OK);
+			return false;
+		}
+
+		wchar_t renderTargetName[512];
+		wsprintfW(renderTargetName, L"Render Target %d", i);
+		frame.renderTarget->SetName(renderTargetName);
+
+		this->device->CreateRenderTargetView(frame.renderTarget.Get(), nullptr, rtvHandle);
+
+		rtvHandle.Offset(1, rtvDescriptorSize);
+	}
 
 	return true;
 }
@@ -1102,6 +1147,14 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 
 			return 0;
 		}
+		case WM_SIZE:
+		{
+			int width = LOWORD(lParam);
+			int height = HIWORD(lParam);
+
+			app->OnWindowResized(width, height);
+			return 0;
+		}
 		case WM_LBUTTONDOWN:
 		{
 			app->OnLeftMouseButtonDown(wParam, lParam);
@@ -1233,6 +1286,12 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 	}
 
 	return DefWindowProc(windowHandle, message, wParam, lParam);
+}
+
+void Application::OnWindowResized(int width, int height)
+{
+	if (this->device.Get() && this->swapChain.Get())
+		this->CreateOrAdjustSwapChain(width, height);
 }
 
 void Application::OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam)

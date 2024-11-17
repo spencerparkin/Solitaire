@@ -17,6 +17,8 @@ public:
 	DirectX::XMVECTOR PointToUVs(DirectX::XMVECTOR point) const;
 	DirectX::XMVECTOR PointFromUVs(DirectX::XMVECTOR uvs) const;
 	bool ContainsPoint(DirectX::XMVECTOR point) const;
+	DirectX::XMVECTOR GetCenter() const;
+	void ScaleAboutCenter(double scaleFactor);
 
 	void ExpandToMatchAspectRatio(double aspectRatio);
 

@@ -95,3 +95,17 @@ bool Box::ContainsPoint(DirectX::XMVECTOR point) const
 
 	return true;
 }
+
+XMVECTOR Box::GetCenter() const
+{
+	return (this->min + this->max) / 2.0f;
+}
+
+void Box::ScaleAboutCenter(double scaleFactor)
+{
+	XMVECTOR center = this->GetCenter();
+	XMVECTOR delta = this->max - center;
+	delta *= scaleFactor;
+	this->min = center - delta;
+	this->max = center + delta;
+}
