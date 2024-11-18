@@ -14,7 +14,7 @@ public:
 	virtual void Clear() override;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
 	virtual bool OnMouseGrabAt(DirectX::XMVECTOR worldPoint) override;
-	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) override;
+	virtual bool OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) override;
 	virtual void OnCardsNeeded() override;
 	virtual void OnKeyUp(uint32_t keyCode) override;

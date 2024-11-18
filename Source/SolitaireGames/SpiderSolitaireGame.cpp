@@ -172,29 +172,30 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 	return false;
 }
 
-/*virtual*/ void SpiderSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
+/*virtual*/ bool SpiderSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
 {
-	if (this->movingCardPile.get())
+	if (!this->movingCardPile.get())
+		return false;
+	
+	bool moveCards = false;
+	std::shared_ptr<CardPile> foundCardPile;
+	int foundCardOffset = -1;
+	if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
 	{
-		bool moveCards = false;
-		std::shared_ptr<CardPile> foundCardPile;
-		int foundCardOffset = -1;
-		if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
-		{
-			const Card* card = foundCardPile->cardArray[foundCardOffset].get();
-			if (foundCardOffset == foundCardPile->cardArray.size() - 1 &&
-				int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
-			{
-				moveCards = true;
-			}
-		}
-		else if (this->FindEmptyPile(worldPoint, foundCardPile))
+		const Card* card = foundCardPile->cardArray[foundCardOffset].get();
+		if (foundCardOffset == foundCardPile->cardArray.size() - 1 &&
+			int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
 		{
 			moveCards = true;
 		}
-
-		this->FinishCardMoving(foundCardPile, moveCards);
 	}
+	else if (this->FindEmptyPile(worldPoint, foundCardPile))
+	{
+		moveCards = true;
+	}
+
+	this->FinishCardMoving(foundCardPile, moveCards);
+	return moveCards;
 }
 
 /*virtual*/ void SpiderSolitaireGame::OnMouseMove(DirectX::XMVECTOR worldPoint)

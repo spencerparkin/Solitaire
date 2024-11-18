@@ -137,73 +137,74 @@ FreeCellSolitaireGame::FreeCellSolitaireGame(const Box& worldExtents, const Box&
 	return false;
 }
 
-/*virtual*/ void FreeCellSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
+/*virtual*/ bool FreeCellSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
 {
-	if (this->movingCardPile.get())
+	if (!this->movingCardPile.get())
+		return false;
+	
+	bool moveCards = false;
+	std::shared_ptr<CardPile> foundCardPile;
+	int foundCardOffset = -1;
+	if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
 	{
-		bool moveCards = false;
-		std::shared_ptr<CardPile> foundCardPile;
-		int foundCardOffset = -1;
-		if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
+		const Card* card = foundCardPile->cardArray[foundCardOffset].get();
+		if (card->GetColor() != this->movingCardPile->cardArray[0]->GetColor() &&
+			int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
 		{
-			const Card* card = foundCardPile->cardArray[foundCardOffset].get();
-			if (card->GetColor() != this->movingCardPile->cardArray[0]->GetColor() &&
-				int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
-			{
-				moveCards = true;
-			}
+			moveCards = true;
 		}
-		else if (this->movingCardPile->cardArray.size() == 1)
+	}
+	else if (this->movingCardPile->cardArray.size() == 1)
+	{
+		for (int i = 0; i < int(Card::Suit::NUM_SUITS); i++)
 		{
-			for (int i = 0; i < int(Card::Suit::NUM_SUITS); i++)
+			std::shared_ptr<CardPile>& suitPile = this->suitPileArray[i];
+			if (suitPile->ContainsPoint(worldPoint, this->cardSize))
 			{
-				std::shared_ptr<CardPile>& suitPile = this->suitPileArray[i];
-				if (suitPile->ContainsPoint(worldPoint, this->cardSize))
+				if (suitPile->cardArray.size() == 0 && this->movingCardPile->cardArray[0]->value == Card::Value::ACE ||
+					(int(suitPile->cardArray[suitPile->cardArray.size() - 1]->value) + 1 == int(this->movingCardPile->cardArray[0]->value) &&
+						suitPile->cardArray[suitPile->cardArray.size() - 1]->suit == this->movingCardPile->cardArray[0]->suit))
 				{
-					if (suitPile->cardArray.size() == 0 && this->movingCardPile->cardArray[0]->value == Card::Value::ACE ||
-						(int(suitPile->cardArray[suitPile->cardArray.size() - 1]->value) + 1 == int(this->movingCardPile->cardArray[0]->value) &&
-							suitPile->cardArray[suitPile->cardArray.size() - 1]->suit == this->movingCardPile->cardArray[0]->suit))
-					{
-						foundCardPile = suitPile;
-						moveCards = true;
-						break;
-					}
-				}
-			}
-
-			if (!moveCards)
-			{
-				for (int i = 0; i < int(this->freePileArray.size()); i++)
-				{
-					std::shared_ptr<CardPile>& freePile = this->freePileArray[i];
-					if (freePile->ContainsPoint(worldPoint, this->cardSize))
-					{
-						if (freePile->cardArray.size() == 0)
-						{
-							foundCardPile = freePile;
-							moveCards = true;
-							break;
-						}
-					}
-				}
-			}
-		}
-		
-		if (!moveCards)
-		{
-			for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
-			{
-				if (cardPile->cardArray.size() == 0 && cardPile->ContainsPoint(worldPoint, this->cardSize))
-				{
-					foundCardPile = cardPile;
+					foundCardPile = suitPile;
 					moveCards = true;
 					break;
 				}
 			}
 		}
 
-		this->FinishCardMoving(foundCardPile, moveCards);
+		if (!moveCards)
+		{
+			for (int i = 0; i < int(this->freePileArray.size()); i++)
+			{
+				std::shared_ptr<CardPile>& freePile = this->freePileArray[i];
+				if (freePile->ContainsPoint(worldPoint, this->cardSize))
+				{
+					if (freePile->cardArray.size() == 0)
+					{
+						foundCardPile = freePile;
+						moveCards = true;
+						break;
+					}
+				}
+			}
+		}
 	}
+		
+	if (!moveCards)
+	{
+		for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
+		{
+			if (cardPile->cardArray.size() == 0 && cardPile->ContainsPoint(worldPoint, this->cardSize))
+			{
+				foundCardPile = cardPile;
+				moveCards = true;
+				break;
+			}
+		}
+	}
+
+	this->FinishCardMoving(foundCardPile, moveCards);
+	return moveCards;
 }
 
 /*virtual*/ void FreeCellSolitaireGame::OnMouseMove(DirectX::XMVECTOR worldPoint)

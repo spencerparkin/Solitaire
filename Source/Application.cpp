@@ -1119,6 +1119,10 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 			AppendMenu(gameMenu, MF_STRING, ID_NEW_GAME, TEXT("New Game"));
 			AppendMenu(gameMenu, MF_SEPARATOR, 0, NULL);
 			AppendMenu(gameMenu, MF_STRING, ID_EXIT_PROGRAM, TEXT("Exit"));
+			
+			HMENU historyMenu = CreateMenu();
+			AppendMenu(historyMenu, MF_STRING, ID_UNDO, TEXT("Undo"));
+			AppendMenu(historyMenu, MF_STRING, ID_REDO, TEXT("Redo"));
 
 			HMENU optionsMenu = CreateMenu();
 			AppendMenu(optionsMenu, MF_STRING, ID_KLONDIKE, TEXT("Klondike"));
@@ -1130,6 +1134,7 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 
 			HMENU menuBar = CreateMenu();
 			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)gameMenu, TEXT("Game"));
+			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)historyMenu, TEXT("History"));
 			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)optionsMenu, TEXT("Options"));
 			AppendMenu(menuBar, MF_POPUP, (UINT_PTR)helpMenu, TEXT("Help"));
 
@@ -1240,6 +1245,26 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 
 					break;
 				}
+				case ID_UNDO:
+				{
+					if (app->gameHistoryList.size() > 0)
+					{
+						app->gameFutureList.push_front(app->cardGame);
+						app->cardGame = app->gameHistoryList.back();
+						app->gameHistoryList.pop_back();
+					}
+					break;
+				}
+				case ID_REDO:
+				{
+					if (app->gameFutureList.size() > 0)
+					{
+						app->gameHistoryList.push_back(app->cardGame);
+						app->cardGame = *app->gameFutureList.begin();
+						app->gameFutureList.pop_front();
+					}
+					break;
+				}
 			}
 
 			return 0;
@@ -1279,6 +1304,23 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 								ModifyMenu(menu, i, MF_BYPOSITION | MF_CHECKED, ID_FREECELL, "Free Cell");
 							else
 								ModifyMenu(menu, i, MF_BYPOSITION | MF_UNCHECKED, ID_FREECELL, "Free Cell");
+							break;
+						}
+						case ID_UNDO:
+						{
+							if(app->gameHistoryList.size() > 0)
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_ENABLED, ID_UNDO, "Undo");
+							else
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_DISABLED, ID_UNDO, "Undo");
+							break;
+						}
+						case ID_REDO:
+						{
+							if (app->gameFutureList.size() > 0)
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_ENABLED, ID_REDO, "Redo");
+							else
+								ModifyMenu(menu, i, MF_BYPOSITION | MF_DISABLED, ID_REDO, "Redo");
+							break;
 						}
 					}
 				}
@@ -1301,10 +1343,15 @@ void Application::OnLeftMouseButtonDown(WPARAM wParam, LPARAM lParam)
 {
 	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
 
-	if (this->cardGame.get() && this->cardGame->OnMouseGrabAt(worldMousePoint))
+	if (this->cardGame.get())
 	{
-		SetCapture(this->windowHandle);
-		this->mouseCaptured = true;
+		this->cardGameClone = this->cardGame->Clone();
+
+		if (this->cardGame->OnMouseGrabAt(worldMousePoint))
+		{
+			SetCapture(this->windowHandle);
+			this->mouseCaptured = true;
+		}
 	}
 }
 
@@ -1313,13 +1360,22 @@ void Application::OnLeftMouseButtonUp(WPARAM wParam, LPARAM lParam)
 	XMVECTOR worldMousePoint = this->MouseLocationToWorldLocation(lParam);
 
 	if (this->cardGame.get())
-		this->cardGame->OnMouseReleaseAt(worldMousePoint);
+	{
+		if (this->cardGame->OnMouseReleaseAt(worldMousePoint))
+		{
+			assert(this->cardGameClone.get() != nullptr);
+			this->gameFutureList.clear();
+			this->gameHistoryList.push_back(this->cardGameClone);
+		}
+	}
 
 	if (this->mouseCaptured)
 	{
 		ReleaseCapture();
 		this->mouseCaptured = false;
 	}
+
+	this->cardGameClone = nullptr;
 }
 
 void Application::OnMouseCaptureChanged(WPARAM wParam, LPARAM lParam)
@@ -1330,6 +1386,7 @@ void Application::OnMouseCaptureChanged(WPARAM wParam, LPARAM lParam)
 			this->cardGame->OnMouseReleaseAt(this->worldExtents.max);
 
 		this->mouseCaptured = false;
+		this->cardGameClone = nullptr;
 	}
 }
 
@@ -1358,6 +1415,8 @@ void Application::OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam)
 		// This also prevents problems with an accidental double-clicking of the mouse button.
 		if (this->cardsNeededClock.GetCurrentTimeSeconds() > MIN_TIME_BETWEEN_CARDS_NEEDED)
 		{
+			this->gameFutureList.clear();
+			this->gameHistoryList.push_back(this->cardGame->Clone());
 			this->cardGame->OnCardsNeeded();
 			this->cardsNeededClock.Reset();
 		}

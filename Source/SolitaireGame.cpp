@@ -20,9 +20,6 @@ SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 {
 	auto game = this->AllocNew();
 
-	assert(this->movingCardPile.get() == nullptr);
-	assert(this->originCardPile.get() == nullptr);
-
 	for (const std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
 		game->cardPileArray.push_back(cardPile->Clone());
 

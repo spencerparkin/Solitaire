@@ -145,53 +145,53 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 	return false;
 }
 
-/*virtual*/ void KlondikeSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
+/*virtual*/ bool KlondikeSolitaireGame::OnMouseReleaseAt(DirectX::XMVECTOR worldPoint)
 {
-	if (this->movingCardPile.get())
+	if (!this->movingCardPile.get())
+		return false;
+
+	bool moveCards = false;
+	std::shared_ptr<CardPile> foundCardPile;
+	int foundCardOffset = -1;
+	if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
 	{
-		bool moveCards = false;
-		std::shared_ptr<CardPile> foundCardPile;
-		int foundCardOffset = -1;
-		if (this->FindCardAndPile(worldPoint, foundCardPile, foundCardOffset))
+		const Card* card = foundCardPile->cardArray[foundCardOffset].get();
+		if (card->GetColor() != this->movingCardPile->cardArray[0]->GetColor() &&
+			int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
 		{
-			const Card* card = foundCardPile->cardArray[foundCardOffset].get();
-			if (card->GetColor() != this->movingCardPile->cardArray[0]->GetColor() &&
-				int(card->value) - 1 == int(this->movingCardPile->cardArray[0]->value))
-			{
-				moveCards = true;
-			}
+			moveCards = true;
 		}
-		else if (this->FindEmptyPile(worldPoint, foundCardPile))
+	}
+	else if (this->FindEmptyPile(worldPoint, foundCardPile))
+	{
+		if (this->movingCardPile->cardArray[0]->value == Card::Value::KING)
 		{
-			if (this->movingCardPile->cardArray[0]->value == Card::Value::KING)
-			{
-				moveCards = true;
-			}
+			moveCards = true;
 		}
-		else if(this->movingCardPile->cardArray.size() == 1)
+	}
+	else if(this->movingCardPile->cardArray.size() == 1)
+	{
+		for (int i = 0; i < int(Card::Suit::NUM_SUITS); i++)
 		{
-			for (int i = 0; i < int(Card::Suit::NUM_SUITS); i++)
+			std::shared_ptr<CardPile>& suitPile = this->suitPileArray[i];
+			if (suitPile->ContainsPoint(worldPoint, this->cardSize))
 			{
-				std::shared_ptr<CardPile>& suitPile = this->suitPileArray[i];
-				if (suitPile->ContainsPoint(worldPoint, this->cardSize))
+				if (suitPile->cardArray.size() == 0 && this->movingCardPile->cardArray[0]->value == Card::Value::ACE ||
+					suitPile->cardArray.size() > 0 &&
+					(int(suitPile->cardArray[suitPile->cardArray.size() - 1]->value) + 1 == int(this->movingCardPile->cardArray[0]->value) &&
+						suitPile->cardArray[suitPile->cardArray.size() - 1]->suit == this->movingCardPile->cardArray[0]->suit))
 				{
-					if (suitPile->cardArray.size() == 0 && this->movingCardPile->cardArray[0]->value == Card::Value::ACE ||
-						suitPile->cardArray.size() > 0 &&
-						(int(suitPile->cardArray[suitPile->cardArray.size() - 1]->value) + 1 == int(this->movingCardPile->cardArray[0]->value) &&
-							suitPile->cardArray[suitPile->cardArray.size() - 1]->suit == this->movingCardPile->cardArray[0]->suit))
-					{
-						foundCardPile = suitPile;
-						moveCards = true;
-						break;
-					}
+					foundCardPile = suitPile;
+					moveCards = true;
+					break;
 				}
 			}
 		}
-
-		this->FinishCardMoving(foundCardPile, moveCards);
-
-		this->drawPile->LayoutCards(this->cardSize);
 	}
+
+	this->FinishCardMoving(foundCardPile, moveCards);
+	this->drawPile->LayoutCards(this->cardSize);
+	return moveCards;
 }
 
 /*virtual*/ void KlondikeSolitaireGame::OnMouseMove(DirectX::XMVECTOR worldPoint)

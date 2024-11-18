@@ -29,6 +29,8 @@ enum
 	ID_SPIDER,
 	ID_KLONDIKE,
 	ID_FREECELL,
+	ID_UNDO,
+	ID_REDO,
 	ID_ABOUT
 };
 
@@ -117,6 +119,9 @@ private:
 	ComPtr<ID3D12Resource> cardVertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW cardVertexBufferView;
 	std::shared_ptr<SolitaireGame> cardGame;
+	std::shared_ptr<SolitaireGame> cardGameClone;
+	std::list<std::shared_ptr<SolitaireGame>> gameHistoryList;
+	std::list<std::shared_ptr<SolitaireGame>> gameFutureList;
 	ComPtr<ID3D12Resource> cardConstantsBuffer;
 	ComPtr<ID3D12DescriptorHeap> cbvHeap;
 	UINT maxCardDrawCallsPerSwapFrame;

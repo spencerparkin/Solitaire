@@ -6,9 +6,6 @@
 #include <random>
 #include "Box.h"
 
-// TODO: It wouldn't be hard to add undo/redo to any game type.
-//       Just add a virtual clone method and then keep a history
-//       list of game snap-shots.
 class SolitaireGame
 {
 public:
@@ -23,7 +20,7 @@ public:
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const;
 	virtual void Clear();
 	virtual bool OnMouseGrabAt(DirectX::XMVECTOR worldPoint) = 0;
-	virtual void OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
+	virtual bool OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnCardsNeeded() = 0;
 	virtual void OnKeyUp(uint32_t keyCode) = 0;
