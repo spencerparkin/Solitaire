@@ -17,6 +17,8 @@ public:
 
 	class Card;
 
+	virtual std::shared_ptr<SolitaireGame> AllocNew() const = 0;
+	virtual std::shared_ptr<SolitaireGame> Clone() const;
 	virtual void NewGame() = 0;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const;
 	virtual void Clear();
@@ -93,6 +95,8 @@ public:
 		CardPile();
 		virtual ~CardPile();
 
+		virtual std::shared_ptr<CardPile> AllocNew() const = 0;
+		virtual std::shared_ptr<CardPile> Clone() const;
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const = 0;
 		virtual void LayoutCards(const Box& cardSize) = 0;
 
@@ -121,6 +125,8 @@ public:
 		CascadingCardPile(CascadeDirection cascadeDirection, int cascadeNumber);
 		virtual ~CascadingCardPile();
 
+		virtual std::shared_ptr<CardPile> AllocNew() const override;
+		virtual std::shared_ptr<CardPile> Clone() const override;
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
 		virtual void LayoutCards(const Box& cardSize) override;
 
@@ -134,6 +140,8 @@ public:
 		SingularCardPile();
 		virtual ~SingularCardPile();
 
+		virtual std::shared_ptr<CardPile> AllocNew() const override;
+		virtual std::shared_ptr<CardPile> Clone() const override;
 		virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;
 		virtual void LayoutCards(const Box& cardSize) override;
 	};

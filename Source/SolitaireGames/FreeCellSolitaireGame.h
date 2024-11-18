@@ -8,6 +8,8 @@ public:
 	FreeCellSolitaireGame(const Box& worldExtents, const Box& cardSize);
 	virtual ~FreeCellSolitaireGame();
 
+	virtual std::shared_ptr<SolitaireGame> AllocNew() const override;
+	virtual std::shared_ptr<SolitaireGame> Clone() const override;
 	virtual void NewGame() override;
 	virtual void Clear() override;
 	virtual void GenerateRenderList(std::vector<const Card*>& cardRenderList) const override;

@@ -10,6 +10,26 @@ FreeCellSolitaireGame::FreeCellSolitaireGame(const Box& worldExtents, const Box&
 {
 }
 
+/*virtual*/ std::shared_ptr<SolitaireGame> FreeCellSolitaireGame::AllocNew() const
+{
+	return std::make_shared<FreeCellSolitaireGame>(this->worldExtents, this->cardSize);
+}
+
+/*virtual*/ std::shared_ptr<SolitaireGame> FreeCellSolitaireGame::Clone() const
+{
+	auto game = SolitaireGame::Clone();
+
+	auto freeCell = dynamic_cast<FreeCellSolitaireGame*>(game.get());
+
+	for (const auto& cardPile : this->suitPileArray)
+		freeCell->suitPileArray.push_back(cardPile->Clone());
+
+	for (const auto& cardPile : this->freePileArray)
+		freeCell->freePileArray.push_back(cardPile->Clone());
+
+	return game;
+}
+
 /*virtual*/ void FreeCellSolitaireGame::NewGame()
 {
 	this->Clear();

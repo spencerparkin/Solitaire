@@ -16,6 +16,19 @@ SolitaireGame::SolitaireGame(const Box& worldExtents, const Box& cardSize)
 {
 }
 
+/*virtual*/ std::shared_ptr<SolitaireGame> SolitaireGame::Clone() const
+{
+	auto game = this->AllocNew();
+
+	assert(this->movingCardPile.get() == nullptr);
+	assert(this->originCardPile.get() == nullptr);
+
+	for (const std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
+		game->cardPileArray.push_back(cardPile->Clone());
+
+	return game;
+}
+
 /*virtual*/ void SolitaireGame::GenerateRenderList(std::vector<const Card*>& cardRenderList) const
 {
 	for (const std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
@@ -292,6 +305,19 @@ SolitaireGame::CardPile::CardPile()
 {
 }
 
+/*virtual*/ std::shared_ptr<SolitaireGame::CardPile> SolitaireGame::CardPile::Clone() const
+{
+	auto cardPile = this->AllocNew();
+
+	cardPile->position = this->position;
+	cardPile->emptyCard = this->emptyCard;
+
+	for (const auto& card : this->cardArray)
+		cardPile->cardArray.push_back(card);
+
+	return cardPile;
+}
+
 bool SolitaireGame::CardPile::ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const
 {
 	Box pileBox = cardSize;
@@ -390,6 +416,22 @@ SolitaireGame::CascadingCardPile::CascadingCardPile(CascadeDirection cascadeDire
 {
 }
 
+/*virtual*/ std::shared_ptr<SolitaireGame::CardPile> SolitaireGame::CascadingCardPile::AllocNew() const
+{
+	return std::make_shared<CascadingCardPile>();
+}
+
+/*virtual*/ std::shared_ptr<SolitaireGame::CardPile> SolitaireGame::CascadingCardPile::Clone() const
+{
+	auto cardPile = CardPile::Clone();
+
+	auto cascadingCardPile = dynamic_cast<CascadingCardPile*>(cardPile.get());
+	cascadingCardPile->cascadeDirection = this->cascadeDirection;
+	cascadingCardPile->cascadeNumber = this->cascadeNumber;
+
+	return cardPile;
+}
+
 /*virtual*/ void SolitaireGame::CascadingCardPile::GenerateRenderList(std::vector<const Card*>& cardRenderList) const
 {
 	if (this->cardArray.size() > 0)
@@ -438,6 +480,18 @@ SolitaireGame::SingularCardPile::SingularCardPile()
 
 /*virtual*/ SolitaireGame::SingularCardPile::~SingularCardPile()
 {
+}
+
+/*virtual*/ std::shared_ptr<SolitaireGame::CardPile> SolitaireGame::SingularCardPile::AllocNew() const
+{
+	return std::make_shared<SingularCardPile>();
+}
+
+/*virtual*/ std::shared_ptr<SolitaireGame::CardPile> SolitaireGame::SingularCardPile::Clone() const
+{
+	auto cardPile = CardPile::Clone();
+
+	return cardPile;
 }
 
 /*virtual*/ void SolitaireGame::SingularCardPile::GenerateRenderList(std::vector<const Card*>& cardRenderList) const

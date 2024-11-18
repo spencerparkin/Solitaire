@@ -10,6 +10,28 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 {
 }
 
+/*virtual*/ std::shared_ptr<SolitaireGame> KlondikeSolitaireGame::AllocNew() const
+{
+	return std::make_shared<KlondikeSolitaireGame>(this->worldExtents, this->cardSize);
+}
+
+/*virtual*/ std::shared_ptr<SolitaireGame> KlondikeSolitaireGame::Clone() const
+{
+	auto game = SolitaireGame::Clone();
+
+	auto klondike = dynamic_cast<KlondikeSolitaireGame*>(game.get());
+
+	for (const auto& card : this->cardList)
+		klondike->cardList.push_back(card);
+
+	for (const auto& cardPile : this->suitPileArray)
+		klondike->suitPileArray.push_back(cardPile->Clone());
+
+	klondike->drawPile = this->drawPile->Clone();
+
+	return game;
+}
+
 /*virtual*/ void KlondikeSolitaireGame::NewGame()
 {
 	this->Clear();

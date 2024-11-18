@@ -11,6 +11,25 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 {
 }
 
+/*virtual*/ std::shared_ptr<SolitaireGame> SpiderSolitaireGame::AllocNew() const
+{
+	return std::make_shared<SpiderSolitaireGame>(this->worldExtents, this->cardSize, this->difficultyLevel);
+}
+
+/*virtual*/ std::shared_ptr<SolitaireGame> SpiderSolitaireGame::Clone() const
+{
+	auto game = SolitaireGame::Clone();
+
+	assert(exitingCardArray.size() == 0);
+
+	auto spider = dynamic_cast<SpiderSolitaireGame*>(game.get());
+
+	for (const auto& card : this->cardArray)
+		spider->cardArray.push_back(card);
+
+	return game;
+}
+
 /*virtual*/ void SpiderSolitaireGame::NewGame()
 {
 	this->Clear();
