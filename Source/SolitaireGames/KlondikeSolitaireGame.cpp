@@ -22,7 +22,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 	auto klondike = dynamic_cast<KlondikeSolitaireGame*>(game.get());
 
 	for (const auto& card : this->cardList)
-		klondike->cardList.push_back(card);
+		klondike->cardList.push_back(card->Clone());
 
 	for (const auto& cardPile : this->suitPileArray)
 		klondike->suitPileArray.push_back(cardPile->Clone());
@@ -199,7 +199,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 	this->ManageCardMoving(worldPoint);
 }
 
-/*virtual*/ void KlondikeSolitaireGame::OnCardsNeeded()
+/*virtual*/ bool KlondikeSolitaireGame::OnCardsNeeded()
 {
 	if (this->cardList.size() == 0)
 	{
@@ -222,6 +222,8 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 	}
 
 	this->drawPile->LayoutCards(this->cardSize);
+
+	return this->drawPile->cardArray.size() > 0;
 }
 
 /*virtual*/ void KlondikeSolitaireGame::OnKeyUp(uint32_t keyCode)

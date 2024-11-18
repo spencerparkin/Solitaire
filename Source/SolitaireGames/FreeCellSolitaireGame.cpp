@@ -212,8 +212,9 @@ FreeCellSolitaireGame::FreeCellSolitaireGame(const Box& worldExtents, const Box&
 	this->ManageCardMoving(worldPoint);
 }
 
-/*virtual*/ void FreeCellSolitaireGame::OnCardsNeeded()
+/*virtual*/ bool FreeCellSolitaireGame::OnCardsNeeded()
 {
+	return false;
 }
 
 /*virtual*/ void FreeCellSolitaireGame::OnKeyUp(uint32_t keyCode)

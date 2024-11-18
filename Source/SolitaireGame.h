@@ -22,7 +22,7 @@ public:
 	virtual bool OnMouseGrabAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual bool OnMouseReleaseAt(DirectX::XMVECTOR worldPoint) = 0;
 	virtual void OnMouseMove(DirectX::XMVECTOR worldPoint) = 0;
-	virtual void OnCardsNeeded() = 0;
+	virtual bool OnCardsNeeded() = 0;
 	virtual void OnKeyUp(uint32_t keyCode) = 0;
 	virtual void Tick(double deltaTimeSeconds);
 	virtual bool GameWon() const = 0;
@@ -33,6 +33,7 @@ public:
 		Card();
 		virtual ~Card();
 
+		std::shared_ptr<Card> Clone() const;
 		std::string GetRenderKey() const;
 		bool ContainsPoint(DirectX::XMVECTOR point, const Box& cardSize) const;
 		void Tick(double deltaTimeSeconds);

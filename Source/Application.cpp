@@ -934,6 +934,8 @@ void Application::Tick()
 		{
 			MessageBoxA(this->windowHandle, "You won!", "Yay!", MB_ICONINFORMATION | MB_OK);
 			this->cardGame->NewGame();
+			this->gameFutureList.clear();
+			this->gameHistoryList.clear();
 		}
 
 		this->cardGame->Tick(deltaTimeSeconds);
@@ -1205,6 +1207,8 @@ void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount
 				case ID_NEW_GAME:
 				{
 					app->cardGame->NewGame();
+					app->gameFutureList.clear();
+					app->gameHistoryList.clear();
 					break;
 				}
 				case ID_ABOUT:
@@ -1415,9 +1419,14 @@ void Application::OnRightMouseButtonUp(WPARAM wParam, LPARAM lParam)
 		// This also prevents problems with an accidental double-clicking of the mouse button.
 		if (this->cardsNeededClock.GetCurrentTimeSeconds() > MIN_TIME_BETWEEN_CARDS_NEEDED)
 		{
-			this->gameFutureList.clear();
-			this->gameHistoryList.push_back(this->cardGame->Clone());
-			this->cardGame->OnCardsNeeded();
+			this->cardGameClone = this->cardGame->Clone();
+
+			if (this->cardGame->OnCardsNeeded())
+			{
+				this->gameFutureList.clear();
+				this->gameHistoryList.push_back(this->cardGameClone);
+			}
+
 			this->cardsNeededClock.Reset();
 		}
 	}

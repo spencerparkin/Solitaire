@@ -198,6 +198,18 @@ SolitaireGame::Card::Card()
 {
 }
 
+std::shared_ptr<SolitaireGame::Card> SolitaireGame::Card::Clone() const
+{
+	auto card = std::make_shared<Card>();
+	card->value = this->value;
+	card->suit = this->suit;
+	card->orientation = this->orientation;
+	card->position = this->position;
+	card->targetPosition = this->targetPosition;
+	card->animationRate = this->animationRate;
+	return card;
+}
+
 void SolitaireGame::Card::Tick(double deltaTimeSeconds)
 {
 	if (this->animationRate > 0.0f)
@@ -310,7 +322,7 @@ SolitaireGame::CardPile::CardPile()
 	cardPile->emptyCard = this->emptyCard;
 
 	for (const auto& card : this->cardArray)
-		cardPile->cardArray.push_back(card);
+		cardPile->cardArray.push_back(card->Clone());
 
 	return cardPile;
 }

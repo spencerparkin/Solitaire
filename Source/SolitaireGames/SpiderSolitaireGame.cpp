@@ -25,7 +25,7 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 	auto spider = dynamic_cast<SpiderSolitaireGame*>(game.get());
 
 	for (const auto& card : this->cardArray)
-		spider->cardArray.push_back(card);
+		spider->cardArray.push_back(card->Clone());
 
 	return game;
 }
@@ -203,19 +203,21 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 	this->ManageCardMoving(worldPoint);
 }
 
-/*virtual*/ void SpiderSolitaireGame::OnCardsNeeded()
+/*virtual*/ bool SpiderSolitaireGame::OnCardsNeeded()
 {
 	// According to the rules of Spider, you can't deal out
 	// cards unless all 10 piles have at least one or more cards.
 	for (std::shared_ptr<CardPile>& cardPile : this->cardPileArray)
 		if (cardPile->cardArray.size() == 0)
-			return;
+			return false;
 
 	// Deal out 10 more cards or as many as we have left.
+	int cardCount = 0;
 	for (int i = 0; i < 10 && this->cardArray.size() > 0; i++)
 	{
 		std::shared_ptr<Card> card = this->cardArray.back();
 		this->cardArray.pop_back();
+		cardCount++;
 		
 		card->orientation = Card::Orientation::FACE_UP;
 
@@ -227,6 +229,8 @@ SpiderSolitaireGame::SpiderSolitaireGame(const Box& worldExtents, const Box& car
 		card->position = this->worldExtents.min;
 		card->animationRate = 200.0;
 	}
+
+	return cardCount > 0;
 }
 
 /*virtual*/ void SpiderSolitaireGame::OnKeyUp(uint32_t keyCode)
