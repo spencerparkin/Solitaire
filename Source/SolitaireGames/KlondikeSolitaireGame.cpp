@@ -154,6 +154,7 @@ KlondikeSolitaireGame::KlondikeSolitaireGame(const Box& worldExtents, const Box&
 				if (suitPile->ContainsPoint(worldPoint, this->cardSize))
 				{
 					if (suitPile->cardArray.size() == 0 && this->movingCardPile->cardArray[0]->value == Card::Value::ACE ||
+						suitPile->cardArray.size() > 0 &&
 						(int(suitPile->cardArray[suitPile->cardArray.size() - 1]->value) + 1 == int(this->movingCardPile->cardArray[0]->value) &&
 							suitPile->cardArray[suitPile->cardArray.size() - 1]->suit == this->movingCardPile->cardArray[0]->suit))
 					{

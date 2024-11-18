@@ -1046,12 +1046,15 @@ void Application::StallUntilFrameCompleteIfNecessary(SwapFrame& frame)
 
 void Application::WaitForGPUIdle()
 {
-	this->commandQueue->Signal(this->generalFence.Get(), ++this->generalCount);
+	if (this->commandQueue.Get() && this->generalFence.Get() && this->generalFenceEvent != NULL)
+	{
+		this->commandQueue->Signal(this->generalFence.Get(), ++this->generalCount);
 
-	HRESULT result = this->generalFence->SetEventOnCompletion(this->generalCount, this->generalFenceEvent);
-	assert(SUCCEEDED(result));
+		HRESULT result = this->generalFence->SetEventOnCompletion(this->generalCount, this->generalFenceEvent);
+		assert(SUCCEEDED(result));
 
-	WaitForSingleObjectEx(this->generalFenceEvent, INFINITE, FALSE);
+		WaitForSingleObjectEx(this->generalFenceEvent, INFINITE, FALSE);
+	}
 }
 
 void Application::RenderCard(const SolitaireGame::Card* card, UINT drawCallCount)
